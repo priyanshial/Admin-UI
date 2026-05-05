@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Lock, UserPlus, Check, X } from 'lucide-react'
+import { loginUser, registerUser } from '../api/auth'
+import { parseApiError } from '../api/config'
 
 const PASSWORD_RULES = [
-  { id: 'length',  label: 'At least 8 characters',           test: p => p.length >= 8 },
-  { id: 'upper',   label: 'At least 1 uppercase letter',     test: p => /[A-Z]/.test(p) },
-  { id: 'number',  label: 'At least 1 number',               test: p => /[0-9]/.test(p) },
-  { id: 'special', label: 'At least 1 special character',    test: p => /[^A-Za-z0-9]/.test(p) },
+  { id: 'length',  label: 'At least 8 characters',        test: p => p.length >= 8 },
+  { id: 'upper',   label: 'At least 1 uppercase letter',  test: p => /[A-Z]/.test(p) },
+  { id: 'number',  label: 'At least 1 number',            test: p => /[0-9]/.test(p) },
+  { id: 'special', label: 'At least 1 special character', test: p => /[^A-Za-z0-9]/.test(p) },
 ]
 
 function PasswordStrength({ password }) {
@@ -16,10 +18,7 @@ function PasswordStrength({ password }) {
         const passed = rule.test(password)
         return (
           <li key={rule.id} className={`flex items-center gap-1.5 text-xs ${passed ? 'text-green-600' : 'text-gray-400'}`}>
-            {passed
-              ? <Check className="w-3 h-3 shrink-0" />
-              : <X className="w-3 h-3 shrink-0" />
-            }
+            {passed ? <Check className="w-3 h-3 shrink-0" /> : <X className="w-3 h-3 shrink-0" />}
             {rule.label}
           </li>
         )
@@ -28,7 +27,9 @@ function PasswordStrength({ password }) {
   )
 }
 
-const EMPTY_FORM = { firstName: '', lastName: '', username: '', email: '', password: '', confirmPassword: '' }
+const EMPTY_FORM = {
+  firstName: '', lastName: '', username: '', email: '', password: '', confirmPassword: '',
+}
 
 export default function LoginPage({ onLogin }) {
   const [mode, setMode] = useState('login') // 'login' | 'signup'
@@ -71,7 +72,7 @@ export default function LoginPage({ onLogin }) {
       }
       const failedRules = PASSWORD_RULES.filter(r => !r.test(form.password))
       if (failedRules.length > 0) {
-        setError(`Password must meet all requirements below.`)
+        setError('Password must meet all requirements below.')
         return
       }
       if (form.password !== form.confirmPassword) {
@@ -79,17 +80,35 @@ export default function LoginPage({ onLogin }) {
         return
       }
     } else {
-      if (!form.email || !form.password) {
+      if (!form.username || !form.password) {
         setError('Please fill in all fields.')
         return
       }
     }
 
     setLoading(true)
-    // Placeholder: replace with real auth call
-    await new Promise(r => setTimeout(r, 600))
-    setLoading(false)
-    onLogin()
+    setError('')
+
+    try {
+      if (isSignup) {
+        await registerUser({
+          firstName: form.firstName,
+          lastName:  form.lastName,
+          username:  form.username,
+          email:     form.email,
+          password:  form.password,
+        })
+        // After successful registration, switch to login
+        switchMode('login')
+      } else {
+        await loginUser({ username: form.username, password: form.password })
+        onLogin()
+      }
+    } catch (err) {
+      setError(parseApiError(err))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -142,31 +161,33 @@ export default function LoginPage({ onLogin }) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                   <input
-                    type="text"
-                    name="username"
-                    value={form.username}
+                    type="email"
+                    name="email"
+                    value={form.email}
                     onChange={handleChange}
-                    placeholder="jane_smith"
+                    placeholder="you@lawfirm.com"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
-                  <p className="text-xs text-gray-400 mt-1">Letters, numbers, and underscores only.</p>
                 </div>
               </>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
               <input
-                type="email"
-                name="email"
-                value={form.email}
+                type="text"
+                name="username"
+                value={form.username}
                 onChange={handleChange}
-                placeholder="you@lawfirm.com"
+                placeholder="jane_smith"
                 autoFocus={!isSignup}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+              {isSignup && (
+                <p className="text-xs text-gray-400 mt-1">Letters, numbers, and underscores only.</p>
+              )}
             </div>
 
             <div>
