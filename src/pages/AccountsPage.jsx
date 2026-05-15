@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Bot, Trash2, ChevronRight } from 'lucide-react'
 import { useAppStore } from '../store/AppContext'
+import { deleteAIConfig } from '../api/core'
 
 function NewAccountForm({ onCreate, onCancel }) {
   const [firmName, setFirmName] = useState('')
@@ -55,9 +56,9 @@ function AccountCard({ account, onOpen, onDelete }) {
         <Bot className="w-5 h-5 text-blue-600" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-900 truncate">{accountConfig.firmName}</p>
+        <p className="text-sm font-semibold text-gray-900 truncate">{accountConfig.name || 'Unnamed Firm'}</p>
         <p className="text-xs text-gray-400 mt-0.5">
-          Agent: {accountConfig.agentName} · {enabledServices}/{totalServices} services enabled
+          {enabledServices}/{totalServices} services enabled
         </p>
       </div>
       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -97,7 +98,12 @@ export default function AccountsPage() {
     navigate('/account')
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
+    const account = accounts.find(a => a.id === id)
+    // If it was saved to the backend, delete it there too
+    if (account?.backendId) {
+      try { await deleteAIConfig(account.backendId) } catch (_) {}
+    }
     deleteAccount(id)
     setConfirmDelete(null)
   }
@@ -153,7 +159,7 @@ export default function AccountsPage() {
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <h3 className="text-base font-semibold text-gray-900 mb-2">
-              Delete {accountToDelete.accountConfig.firmName}?
+              Delete {accountToDelete.accountConfig.name || 'this account'}?
             </h3>
             <p className="text-sm text-gray-500 mb-5">
               This will permanently remove the account and all its configuration. This cannot be undone.

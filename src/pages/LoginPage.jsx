@@ -98,7 +98,6 @@ export default function LoginPage({ onLogin }) {
           email:     form.email,
           password:  form.password,
         })
-        // After successful registration, switch to login
         switchMode('login')
       } else {
         await loginUser({ username: form.username, password: form.password })

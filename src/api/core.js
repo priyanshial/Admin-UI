@@ -13,6 +13,16 @@ async function request(path, options = {}) {
   return data
 }
 
+// ── AI Config ─────────────────────────────────────────────────────────────────
+// GET    /api/ai-config/
+export const getAIConfigs = () => request('/api/ai-config/')
+// POST   /api/ai-config/create/
+export const createAIConfig = (body) => request('/api/ai-config/create/', { method: 'POST', body: JSON.stringify(body) })
+// PUT    /api/ai-config/:id/update/
+export const updateAIConfig = (id, body) => request(`/api/ai-config/${id}/update/`, { method: 'PATCH', body: JSON.stringify(body) })
+// DELETE /api/ai-config/:id/delete/
+export const deleteAIConfig = (id) => request(`/api/ai-config/${id}/delete/`, { method: 'DELETE' })
+
 // ── Companies ─────────────────────────────────────────────────────────────────
 // GET    /api/companies/
 export const getCompanies = () => request('/api/companies/')

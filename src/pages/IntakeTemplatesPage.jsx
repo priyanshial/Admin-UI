@@ -179,6 +179,7 @@ export default function IntakeTemplatesPage() {
 
   const practiceAreas = templates.filter(t => t.category === 'practice_area')
   const thirdParty = templates.filter(t => t.category === 'third_party')
+  const general = templates.filter(t => t.category === 'general')
 
   return (
     <div>
@@ -216,6 +217,15 @@ export default function IntakeTemplatesPage() {
           onToggleQuestion={toggleQuestion}
           onQuestionChange={changeQuestion}
         />
+        {general.length > 0 && (
+          <SectionGroup
+            title="General"
+            templates={general}
+            onToggleTemplate={toggleTemplate}
+            onToggleQuestion={toggleQuestion}
+            onQuestionChange={changeQuestion}
+          />
+        )}
       </div>
     </div>
   )

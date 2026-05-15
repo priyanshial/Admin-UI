@@ -366,6 +366,35 @@ const RAW_INTAKE_TEMPLATES = [
       { id: 'message',       label: 'Message',                               fieldType: 'textarea', required: false, options: null, conditionalOn: null },
     ],
   },
+
+  // ── General ─────────────────────────────────────────────────────────────────
+
+  {
+    id: 'general_call',
+    label: 'General Call',
+    category: 'general',
+    enabled: true,
+    questions: [
+      { id: 'first_name',   label: 'First Name',   fieldType: 'text',     required: true,  options: null, conditionalOn: null },
+      { id: 'last_name',    label: 'Last Name',    fieldType: 'text',     required: true,  options: null, conditionalOn: null },
+      { id: 'phone_number', label: 'Phone Number', fieldType: 'phone',    required: true,  options: null, conditionalOn: null },
+      { id: 'message',      label: 'Message',      fieldType: 'textarea', required: false, options: null, conditionalOn: null },
+    ],
+  },
+
+  {
+    id: 'existing_client',
+    label: 'Existing Client',
+    category: 'general',
+    enabled: true,
+    questions: [
+      { id: 'first_name',   label: 'First Name',                              fieldType: 'text',     required: true,  options: null, conditionalOn: null },
+      { id: 'last_name',    label: 'Last Name',                               fieldType: 'text',     required: true,  options: null, conditionalOn: null },
+      { id: 'phone_number', label: 'Phone Number',                            fieldType: 'phone',    required: true,  options: null, conditionalOn: null },
+      { id: 'case_ref',     label: 'What case/matter are you calling about?', fieldType: 'text',     required: true,  options: null, conditionalOn: null },
+      { id: 'message',      label: 'Message',                                 fieldType: 'textarea', required: false, options: null, conditionalOn: null },
+    ],
+  },
 ]
 
 export const DEFAULT_INTAKE_TEMPLATES = withQuestions(RAW_INTAKE_TEMPLATES)
@@ -386,16 +415,29 @@ export const DEFAULT_INTAKE_TEMPLATES = withQuestions(RAW_INTAKE_TEMPLATES)
  * @property {string} timezone
  */
 export const DEFAULT_ACCOUNT_CONFIG = {
-  firmName: 'Law Office of Moira Rose',
-  agentName: 'Ava',
-  llmModel: 'gpt-4o-2024-11-20',
-  llmEndpoint: '',
-  openaiApiKey: '',
-  ttsProvider: 'rime',
-  asrProvider: 'deepgram',
-  transferPhone: '',
-  outboundPhone: '',
-  timezone: 'America/New_York',
+  // Firm identity
+  name:             '',
+  email:            '',
+  additional_email: '',
+  // Phone
+  phone:            '',
+  additional_phone: '',
+  // Address
+  address:          '',
+  address2:         '',
+  city:             '',
+  state:            '',
+  zip:              '',
+  // AI
+  llm_type:         '',
+  // Case types (array of UUIDs sent to backend)
+  case_types:       [],
+  // Voice agent
+  did_phone:        '',
+  // Notes
+  notes:            '',
+  // Greeting (ID of the selected greeting from backend)
+  greeting_id:      '',
 }
 
 /**

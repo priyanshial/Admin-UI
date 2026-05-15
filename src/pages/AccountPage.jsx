@@ -1,7 +1,9 @@
-import { useState } from 'react'
-import { Save, Bot } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Save } from 'lucide-react'
 import { useAppStore } from '../store/AppContext'
-import { LLM_MODELS, TTS_PROVIDERS, ASR_PROVIDERS } from '../models/constants'
+import { createAIConfig, updateAIConfig, getCaseTypes, getGreetings, getAIConfigs } from '../api/core'
+import { parseApiError } from '../api/config'
+import { DEFAULT_ACCOUNT_CONFIG } from '../models/defaults'
 
 function Field({ label, hint, children }) {
   return (
@@ -17,19 +19,8 @@ function Input({ ...props }) {
   return (
     <input
       {...props}
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
     />
-  )
-}
-
-function Select({ children, ...props }) {
-  return (
-    <select
-      {...props}
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-    >
-      {children}
-    </select>
   )
 }
 
@@ -44,21 +35,95 @@ function SectionHeader({ title, description }) {
 
 export default function AccountPage() {
   const { accountConfig, saveAccountConfig } = useAppStore()
-  const [form, setForm] = useState(accountConfig)
+  const [form, setForm] = useState(DEFAULT_ACCOUNT_CONFIG)
+  const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [error, setError] = useState('')
+  const [caseTypes, setCaseTypes] = useState([])
+  const [greetings, setGreetings] = useState([])
+
+  useEffect(() => {
+    async function loadBackendData() {
+      try {
+        const [configs, caseTypesData, greetingsData] = await Promise.all([
+          getAIConfigs(),
+          getCaseTypes(),
+          getGreetings(),
+        ])
+
+        setCaseTypes(caseTypesData ?? [])
+        setGreetings(greetingsData ?? [])
+
+        // Find this account's record on the server
+        const backendId = accountConfig?.backendId
+        if (backendId && Array.isArray(configs)) {
+          const serverRecord = configs.find(c => c.id === backendId)
+          if (serverRecord) {
+            const synced = { ...serverRecord, backendId }
+            saveAccountConfig(synced)
+            setForm(synced)
+          }
+        }
+      } catch {
+        // Server unreachable — fall back to whatever is in localStorage
+        setForm(accountConfig ?? DEFAULT_ACCOUNT_CONFIG)
+        setCaseTypes([])
+        setGreetings([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadBackendData()
+  }, [])
 
   function handleChange(e) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
     setSaved(false)
+    setError('')
   }
 
-  function handleSubmit(e) {
+  function handleCaseTypeToggle(id) {
+    setForm(prev => {
+      const current = prev.case_types ?? []
+      const updated = current.includes(id)
+        ? current.filter(c => c !== id)
+        : [...current, id]
+      return { ...prev, case_types: updated }
+    })
+    setSaved(false)
+    setError('')
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault()
-    saveAccountConfig(form)
-    setSaved(true)
-    setIsEditing(false)
-    setTimeout(() => setSaved(false), 3000)
+    setError('')
+    try {
+      const backendId = accountConfig?.backendId
+      if (backendId) {
+        await updateAIConfig(backendId, form)
+        saveAccountConfig(form)
+      } else {
+        const created = await createAIConfig(form)
+        saveAccountConfig({ ...form, backendId: created.id })
+      }
+      setSaved(true)
+      setIsEditing(false)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      setError(parseApiError(err))
+    }
+  }
+
+  const selectedCaseTypes = form.case_types ?? []
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <p className="text-sm text-gray-400">Loading account data…</p>
+      </div>
+    )
   }
 
   return (
@@ -66,15 +131,15 @@ export default function AccountPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">AI Account</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Configure your voice agent identity and integrations</p>
+          <p className="text-sm text-gray-500 mt-0.5">Configure your firm's details and AI settings.</p>
         </div>
         <div className="flex items-center gap-2">
-          {saved && (
-            <span className="text-sm text-green-600 font-medium">Saved!</span>
-          )}
+          {error && <span className="text-sm text-red-600">{error}</span>}
+          {saved && <span className="text-sm text-green-600 font-medium">Saved!</span>}
           {!isEditing ? (
             <button
-              onClick={() => setIsEditing(true)}
+              type="button"
+              onClick={() => { setIsEditing(true); setSaved(false) }}
               className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
             >
               Edit
@@ -93,118 +158,251 @@ export default function AccountPage() {
       </div>
 
       <form id="account-form" onSubmit={handleSubmit} className="space-y-6">
-        {/* Identity */}
+
+        {/* Firm Identity */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <SectionHeader title="Firm Identity" description="Basic information about your law firm and AI agent." />
+          <SectionHeader title="Firm Identity" description="Basic contact information for the law firm." />
           <div className="space-y-4">
             <Field label="Firm Name">
               <Input
-                name="firmName"
-                value={form.firmName}
+                name="name"
+                value={form.name ?? ''}
                 onChange={handleChange}
                 disabled={!isEditing}
                 placeholder="Law Office of..."
               />
             </Field>
-            <Field label="Agent Name" hint="The name the AI will use to introduce itself to callers.">
-              <Input
-                name="agentName"
-                value={form.agentName}
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <Field label="Email">
+                  <Input
+                    name="email"
+                    type="email"
+                    value={form.email ?? ''}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    placeholder="contact@lawfirm.com"
+                  />
+                </Field>
+              </div>
+              <div className="flex-1">
+                <Field label="Additional Email">
+                  <Input
+                    name="additional_email"
+                    type="email"
+                    value={form.additional_email ?? ''}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    placeholder="secondary@lawfirm.com"
+                  />
+                </Field>
+              </div>
+            </div>
+            <Field label="Notes" hint="Any extra information about this firm.">
+              <textarea
+                name="notes"
+                value={form.notes ?? ''}
                 onChange={handleChange}
                 disabled={!isEditing}
-                placeholder="e.g. Ava"
-              />
-            </Field>
-            <Field label="Timezone">
-              <Input
-                name="timezone"
-                value={form.timezone}
-                onChange={handleChange}
-                disabled={!isEditing}
-                placeholder="America/New_York"
-              />
-            </Field>
-          </div>
-        </div>
-
-        {/* LLM */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <SectionHeader title="Language Model" description="LLM used for conversation understanding and slot extraction." />
-          <div className="space-y-4">
-            <Field label="Model">
-              <Select name="llmModel" value={form.llmModel} onChange={handleChange} disabled={!isEditing}>
-                {LLM_MODELS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Custom LLM Endpoint" hint="Leave blank to use OpenAI. Set for self-hosted vLLM instances.">
-              <Input
-                name="llmEndpoint"
-                value={form.llmEndpoint}
-                onChange={handleChange}
-                disabled={!isEditing}
-                placeholder="http://192.168.20.25:8000/v1"
-              />
-            </Field>
-            <Field label="OpenAI API Key">
-              <Input
-                name="openaiApiKey"
-                type="password"
-                value={form.openaiApiKey}
-                onChange={handleChange}
-                disabled={!isEditing}
-                placeholder="sk-..."
+                placeholder="Internal notes about this account…"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 resize-y"
               />
             </Field>
           </div>
         </div>
 
-        {/* Voice */}
+        {/* Phone Numbers */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <SectionHeader title="Voice Providers" description="ASR (speech-to-text) and TTS (text-to-speech) configuration." />
-          <div className="space-y-4">
-            <Field label="ASR Provider">
-              <Select name="asrProvider" value={form.asrProvider} onChange={handleChange} disabled={!isEditing}>
-                {ASR_PROVIDERS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="TTS Provider">
-              <Select name="ttsProvider" value={form.ttsProvider} onChange={handleChange} disabled={!isEditing}>
-                {TTS_PROVIDERS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </Select>
-            </Field>
+          <SectionHeader title="Phone Numbers" description="Primary and secondary contact numbers." />
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Field label="Phone">
+                <Input
+                  name="phone"
+                  value={form.phone ?? ''}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  placeholder="+1 (555) 000-0000"
+                />
+              </Field>
+            </div>
+            <div className="flex-1">
+              <Field label="Additional Phone">
+                <Input
+                  name="additional_phone"
+                  value={form.additional_phone ?? ''}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  placeholder="+1 (555) 000-0000"
+                />
+              </Field>
+            </div>
           </div>
         </div>
 
-        {/* Call Transfer */}
+        {/* Address */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <SectionHeader title="Call Transfer" description="Phone numbers used for routing live calls." />
+          <SectionHeader title="Address" description="Physical address of the firm." />
           <div className="space-y-4">
-            <Field label="Transfer-to Phone" hint="Attorney's phone number for blind transfer.">
+            <Field label="Address Line 1">
               <Input
-                name="transferPhone"
-                value={form.transferPhone}
+                name="address"
+                value={form.address ?? ''}
                 onChange={handleChange}
                 disabled={!isEditing}
-                placeholder="+1 (555) 000-0000"
+                placeholder="123 Main St"
               />
             </Field>
-            <Field label="Outbound Caller ID" hint="The number displayed when the agent dials out.">
+            <Field label="Address Line 2">
               <Input
-                name="outboundPhone"
-                value={form.outboundPhone}
+                name="address2"
+                value={form.address2 ?? ''}
                 onChange={handleChange}
                 disabled={!isEditing}
-                placeholder="+1 (555) 000-0000"
+                placeholder="Suite 100"
               />
             </Field>
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <Field label="City">
+                  <Input
+                    name="city"
+                    value={form.city ?? ''}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    placeholder="New York"
+                  />
+                </Field>
+              </div>
+              <div className="w-24">
+                <Field label="State">
+                  <Input
+                    name="state"
+                    value={form.state ?? ''}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    placeholder="NY"
+                    maxLength={2}
+                  />
+                </Field>
+              </div>
+              <div className="w-32">
+                <Field label="ZIP Code">
+                  <Input
+                    name="zip"
+                    value={form.zip ?? ''}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    placeholder="10001"
+                  />
+                </Field>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* AI Configuration */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <SectionHeader title="AI Configuration" description="Language model used by the voice agent." />
+          <Field label="LLM Type" hint="The AI model powering the voice agent.">
+            <Input
+              name="llm_type"
+              value={form.llm_type ?? ''}
+              onChange={handleChange}
+              disabled={!isEditing}
+              placeholder="e.g. gpt-4o"
+            />
+          </Field>
+        </div>
+
+        {/* Greeting */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <SectionHeader
+            title="Greeting"
+            description="The greeting script the voice agent uses when a call begins."
+          />
+          {greetings.length === 0 ? (
+            <p className="text-sm text-gray-400">No greetings configured on the server.</p>
+          ) : (
+            <Field label="Select Greeting">
+              <select
+                name="greeting_id"
+                value={form.greeting_id ?? ''}
+                onChange={handleChange}
+                disabled={!isEditing}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+              >
+                <option value="">— None —</option>
+                {greetings.map(g => (
+                  <option key={g.id} value={g.id}>{g.name ?? g.text ?? g.id}</option>
+                ))}
+              </select>
+            </Field>
+          )}
+        </div>
+
+        {/* Voice Agent */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <SectionHeader
+            title="Voice Agent"
+            description="Phone number assigned to the AI voice agent for this firm."
+          />
+          <Field
+            label="DID Phone Number"
+            hint="The phone number callers will dial to reach this firm's AI agent."
+          >
+            <Input
+              name="did_phone"
+              value={form.did_phone ?? ''}
+              onChange={handleChange}
+              disabled={!isEditing}
+              placeholder="+1 (555) 000-0000"
+            />
+          </Field>
+        </div>
+
+        {/* Case Types */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <SectionHeader
+            title="Case Types"
+            description="Select the practice areas this firm handles."
+          />
+          {caseTypes.length === 0 ? (
+            <p className="text-sm text-gray-400">No case types available from the server.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {caseTypes.map(ct => {
+                const selected = selectedCaseTypes.includes(ct.id)
+                return (
+                  <button
+                    key={ct.id}
+                    type="button"
+                    disabled={!isEditing}
+                    onClick={() => handleCaseTypeToggle(ct.id)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm text-left transition-colors disabled:cursor-default ${
+                      selected
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                    } ${!isEditing && !selected ? 'opacity-50' : ''}`}
+                  >
+                    <span className={`w-3.5 h-3.5 rounded-sm border shrink-0 flex items-center justify-center ${
+                      selected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                    }`}>
+                      {selected && (
+                        <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 10" fill="none">
+                          <path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="truncate">{ct.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
       </form>
     </div>
   )
