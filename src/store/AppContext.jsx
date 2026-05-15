@@ -1,104 +1,100 @@
-import { createContext, useContext, useState, useCallback } from 'react'
-import { loadFromStorage, saveToStorage } from './storage'
-import { createDefaultAccount } from '../models/defaults'
-
-const KEYS = {
-  ACCOUNTS: 'accounts',
-  ACTIVE_ID: 'active_account_id',
-}
+import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { DEFAULT_ACCOUNT_CONFIG, DEFAULT_INTAKE_TEMPLATES, DEFAULT_CONFIRMATION_QUESTIONS, DEFAULT_SERVICES } from '../models/defaults'
+import { getAIConfigs, createAIConfig, deleteAIConfig } from '../api/core'
 
 const AppContext = createContext(null)
 
-function loadAccounts() {
-  const stored = loadFromStorage(KEYS.ACCOUNTS, null)
-  if (stored && stored.length > 0) return stored
-  // First run: seed one default account
-  const seed = createDefaultAccount('Law Office of Moira Rose')
-  saveToStorage(KEYS.ACCOUNTS, [seed])
-  return [seed]
+function backendRecordToAccount(r) {
+  return {
+    id: r.id,
+    accountConfig: { ...DEFAULT_ACCOUNT_CONFIG, ...r, backendId: r.id },
+    intakeTemplates: DEFAULT_INTAKE_TEMPLATES,
+    confirmationQuestions: DEFAULT_CONFIRMATION_QUESTIONS,
+    services: DEFAULT_SERVICES,
+  }
 }
 
 export function AppProvider({ children }) {
-  const [accounts, setAccounts] = useState(loadAccounts)
-  const [activeAccountId, setActiveAccountId] = useState(() =>
-    loadFromStorage(KEYS.ACTIVE_ID, null)
-  )
+  const [accounts, setAccounts] = useState([])
+  const [activeAccountId, setActiveAccountId] = useState(null)
+  const [accountsLoading, setAccountsLoading] = useState(true)
+
+  // Load all accounts from backend on app start
+  useEffect(() => {
+    getAIConfigs()
+      .then(records => {
+        if (Array.isArray(records)) {
+          setAccounts(records.map(backendRecordToAccount))
+        }
+      })
+      .catch(() => {})
+      .finally(() => setAccountsLoading(false))
+  }, [])
 
   const activeAccount = accounts.find(a => a.id === activeAccountId) ?? null
 
-  // ── Account management ────────────────────────────────────────────────────
-
   const selectAccount = useCallback((id) => {
     setActiveAccountId(id)
-    saveToStorage(KEYS.ACTIVE_ID, id)
   }, [])
 
-  const createAccount = useCallback((firmName) => {
-    const account = createDefaultAccount(firmName)
-    setAccounts(prev => {
-      const updated = [...prev, account]
-      saveToStorage(KEYS.ACCOUNTS, updated)
-      return updated
-    })
+  // Create on backend, then add to local list
+  const createAccount = useCallback(async (firmName) => {
+    const created = await createAIConfig({ name: firmName })
+    const account = backendRecordToAccount(created)
+    setAccounts(prev => [...prev, account])
     setActiveAccountId(account.id)
-    saveToStorage(KEYS.ACTIVE_ID, account.id)
     return account.id
   }, [])
 
-  const deleteAccount = useCallback((id) => {
-    setAccounts(prev => {
-      const updated = prev.filter(a => a.id !== id)
-      saveToStorage(KEYS.ACCOUNTS, updated)
-      return updated
-    })
-    setActiveAccountId(prev => {
-      if (prev !== id) return prev
-      saveToStorage(KEYS.ACTIVE_ID, null)
-      return null
-    })
-  }, [])
+  // Delete on backend, then remove from local list
+  const deleteAccount = useCallback(async (id) => {
+    const account = accounts.find(a => a.id === id)
+    const backendId = account?.accountConfig?.backendId
+    if (backendId) {
+      await deleteAIConfig(backendId)
+    }
+    setAccounts(prev => prev.filter(a => a.id !== id))
+    setActiveAccountId(prev => prev === id ? null : prev)
+  }, [accounts])
 
-  // ── Helpers for updating active account's config domains ─────────────────
-
-  function updateActive(patch) {
-    setAccounts(prev => {
-      const updated = prev.map(a => a.id === activeAccountId ? { ...a, ...patch } : a)
-      saveToStorage(KEYS.ACCOUNTS, updated)
-      return updated
-    })
-  }
-
+  // Update active account's in-memory config after a successful backend save
   const saveAccountConfig = useCallback((data) => {
-    updateActive({ accountConfig: data })
+    setAccounts(prev =>
+      prev.map(a => a.id === activeAccountId ? { ...a, accountConfig: data } : a)
+    )
   }, [activeAccountId])
 
   const saveIntakeTemplates = useCallback((data) => {
-    updateActive({ intakeTemplates: data })
+    setAccounts(prev =>
+      prev.map(a => a.id === activeAccountId ? { ...a, intakeTemplates: data } : a)
+    )
   }, [activeAccountId])
 
   const saveConfirmationQuestions = useCallback((data) => {
-    updateActive({ confirmationQuestions: data })
+    setAccounts(prev =>
+      prev.map(a => a.id === activeAccountId ? { ...a, confirmationQuestions: data } : a)
+    )
   }, [activeAccountId])
 
   const saveServices = useCallback((data) => {
-    updateActive({ services: data })
+    setAccounts(prev =>
+      prev.map(a => a.id === activeAccountId ? { ...a, services: data } : a)
+    )
   }, [activeAccountId])
 
   return (
     <AppContext.Provider value={{
-      // account list
       accounts,
+      accountsLoading,
       activeAccountId,
       activeAccount,
       selectAccount,
       createAccount,
       deleteAccount,
-      // active account config (null when no account selected)
-      accountConfig:          activeAccount?.accountConfig          ?? null,
-      intakeTemplates:        activeAccount?.intakeTemplates        ?? [],
-      confirmationQuestions:  activeAccount?.confirmationQuestions  ?? [],
-      services:               activeAccount?.services               ?? [],
-      // save actions
+      accountConfig:         activeAccount?.accountConfig         ?? null,
+      intakeTemplates:       activeAccount?.intakeTemplates       ?? [],
+      confirmationQuestions: activeAccount?.confirmationQuestions ?? [],
+      services:              activeAccount?.services              ?? [],
       saveAccountConfig,
       saveIntakeTemplates,
       saveConfirmationQuestions,

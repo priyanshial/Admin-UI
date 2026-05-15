@@ -34,7 +34,7 @@ function SectionHeader({ title, description }) {
 }
 
 export default function AccountPage() {
-  const { accountConfig, saveAccountConfig } = useAppStore()
+  const { activeAccountId, accountConfig, saveAccountConfig } = useAppStore()
   const [form, setForm] = useState(DEFAULT_ACCOUNT_CONFIG)
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
@@ -55,18 +55,16 @@ export default function AccountPage() {
         setCaseTypes(caseTypesData ?? [])
         setGreetings(greetingsData ?? [])
 
-        // Find this account's record on the server
-        const backendId = accountConfig?.backendId
-        if (backendId && Array.isArray(configs)) {
-          const serverRecord = configs.find(c => c.id === backendId)
+        // activeAccountId is the backend UUID — find it directly
+        if (activeAccountId && Array.isArray(configs)) {
+          const serverRecord = configs.find(c => c.id === activeAccountId)
           if (serverRecord) {
-            const synced = { ...serverRecord, backendId }
+            const synced = { ...serverRecord, backendId: serverRecord.id }
             saveAccountConfig(synced)
             setForm(synced)
           }
         }
       } catch {
-        // Server unreachable — fall back to whatever is in localStorage
         setForm(accountConfig ?? DEFAULT_ACCOUNT_CONFIG)
         setCaseTypes([])
         setGreetings([])
@@ -76,7 +74,7 @@ export default function AccountPage() {
     }
 
     loadBackendData()
-  }, [])
+  }, [activeAccountId])
 
   function handleChange(e) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -100,10 +98,9 @@ export default function AccountPage() {
     e.preventDefault()
     setError('')
     try {
-      const backendId = accountConfig?.backendId
-      if (backendId) {
-        await updateAIConfig(backendId, form)
-        saveAccountConfig(form)
+      if (activeAccountId) {
+        await updateAIConfig(activeAccountId, form)
+        saveAccountConfig({ ...form, backendId: activeAccountId })
       } else {
         const created = await createAIConfig(form)
         saveAccountConfig({ ...form, backendId: created.id })
