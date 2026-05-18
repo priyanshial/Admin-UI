@@ -42,6 +42,7 @@ export default function AccountPage() {
   const [error, setError] = useState('')
   const [caseTypes, setCaseTypes] = useState([])
   const [greetings, setGreetings] = useState([])
+  console.log('form', form)
 
   useEffect(() => {
     async function loadBackendData() {
@@ -133,7 +134,7 @@ export default function AccountPage() {
         <div className="flex items-center gap-2">
           {error && <span className="text-sm text-red-600">{error}</span>}
           {saved && <span className="text-sm text-green-600 font-medium">Saved!</span>}
-          {!isEditing ? (
+          {!isEditing && (
             <button
               type="button"
               onClick={() => { setIsEditing(true); setSaved(false) }}
@@ -141,20 +142,11 @@ export default function AccountPage() {
             >
               Edit
             </button>
-          ) : (
-            <button
-              form="account-form"
-              type="submit"
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Save className="w-4 h-4" />
-              Save changes
-            </button>
           )}
         </div>
       </div>
 
-      <form id="account-form" onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
 
         {/* Firm Identity */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -162,8 +154,8 @@ export default function AccountPage() {
           <div className="space-y-4">
             <Field label="Firm Name">
               <Input
-                name="name"
-                value={form.name ?? ''}
+                name="firm_name"
+                value={form.firm_name }
                 onChange={handleChange}
                 disabled={!isEditing}
                 placeholder="Law Office of..."
@@ -399,6 +391,18 @@ export default function AccountPage() {
             </div>
           )}
         </div>
+
+        {isEditing && (
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Save className="w-4 h-4" />
+              Save changes
+            </button>
+          </div>
+        )}
 
       </form>
     </div>

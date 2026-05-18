@@ -37,6 +37,25 @@ export function AppProvider({ children }) {
     setActiveAccountId(id)
   }, [])
 
+
+//   {
+//       "name": "Smith & Partners Law",
+//       "email": "contact@smithpartners.com",
+//       "additional_email": "billing@smithpartners.com",
+//       "phone": "212-555-0100",
+//       "additional_phone": "212-555-0101",
+//       "llm_type": "gpt-4",
+//       "incoming_call": "12125550100",
+//       "transfer_call": "12125550101",
+//       "address": "350 Fifth Avenue",
+//       "address2": "Suite 410",
+//       "city": "New York",
+//       "state": "NY",
+//       "zip": "10118",
+//       "did_phone_number": "12125550199",
+//       "notes": "Personal injury and criminal defense firm",
+//       "case_types": []
+//   }
   // Create on backend, then add to local list
   const createAccount = useCallback(async (firmName) => {
     const created = await createAIConfig({ name: firmName })

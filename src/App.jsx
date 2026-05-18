@@ -17,13 +17,14 @@ function AppRoutes() {
   return (
     <Routes key={activeAccountId ?? 'none'}>
       <Route path="/accounts" element={<AccountsPage />} />
-      <Route
+      {/* <Route
         path="/"
         element={<Navigate to={activeAccountId ? '/account' : '/accounts'} replace />}
-      />
+      /> */}
+      <Route path="/account"           element={<AccountPage />} />
       {activeAccountId ? (
         <>
-          <Route path="/account"           element={<AccountPage />} />
+          
           <Route path="/intake-templates"  element={<IntakeTemplatesPage />} />
           <Route path="/confirm-questions" element={<ConfirmQuestionsPage />} />
           <Route path="/toggle-service"    element={<ToggleServicePage />} />

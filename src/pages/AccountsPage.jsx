@@ -56,7 +56,7 @@ function AccountCard({ account, onOpen, onDelete }) {
         <Bot className="w-5 h-5 text-blue-600" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-900 truncate">{accountConfig.name || 'Unnamed Firm'}</p>
+        <p className="text-sm font-semibold text-gray-900 truncate">{accountConfig.firm_name || 'Unnamed Firm'}</p>
         <p className="text-xs text-gray-400 mt-0.5">
           {enabledServices}/{totalServices} services enabled
         </p>
@@ -93,7 +93,7 @@ export default function AccountsPage() {
   }
 
   function handleCreate(firmName) {
-    createAccount(firmName)
+   //createAccount(firmName)
     setShowNewForm(false)
     navigate('/account')
   }
