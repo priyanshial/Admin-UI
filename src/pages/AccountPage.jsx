@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Save } from 'lucide-react'
+import { useParams } from 'react-router-dom'
 import { useAppStore } from '../store/AppContext'
-import { createAIConfig, updateAIConfig, getCaseTypes, getGreetings, getAIConfigs } from '../api/core'
+import { createAIConfig, updateAIConfig, getAIConfig, getAIConfigs } from '../api/core'
 import { parseApiError } from '../api/config'
 import { DEFAULT_ACCOUNT_CONFIG } from '../models/defaults'
 
@@ -34,41 +35,33 @@ function SectionHeader({ title, description }) {
 }
 
 export default function AccountPage() {
-  const { activeAccountId, accountConfig, saveAccountConfig } = useAppStore()
+  const { id: activeAccountId } = useParams()
+  const { accountConfig, saveAccountConfig, selectAccount } = useAppStore()
   const [form, setForm] = useState(DEFAULT_ACCOUNT_CONFIG)
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [error, setError] = useState('')
-  const [caseTypes, setCaseTypes] = useState([])
-  const [greetings, setGreetings] = useState([])
-  console.log('form', form)
+
+  // useEffect(() => {
+  //   if (activeAccountId) selectAccount(activeAccountId)
+  // }, [activeAccountId])
 
   useEffect(() => {
     async function loadBackendData() {
       try {
-        const [configs, caseTypesData, greetingsData] = await Promise.all([
-          getAIConfigs(),
-          getCaseTypes(),
-          getGreetings(),
-        ])
-
-        setCaseTypes(caseTypesData ?? [])
-        setGreetings(greetingsData ?? [])
-
-        // activeAccountId is the backend UUID — find it directly
-        if (activeAccountId && Array.isArray(configs)) {
-          const serverRecord = configs.find(c => c.id === activeAccountId)
-          if (serverRecord) {
-            const synced = { ...serverRecord, backendId: serverRecord.id }
-            saveAccountConfig(synced)
-            setForm(synced)
-          }
-        }
-      } catch {
+        const configs = await getAIConfig(activeAccountId)
+        // if (activeAccountId && Array.isArray(configs)) {
+        //   const serverRecord = configs.find(c => c.id === activeAccountId)
+          // if (serverRecord) {
+          //   const synced = { ...serverRecord, backendId: serverRecord.id }
+            // saveAccountConfig({ ...configs, backendId: activeAccountId})
+            setForm({ ...configs, backendId: activeAccountId})
+          // }
+        // }
+      } catch (err) {
+        console.error('Failed to load AI config for account', activeAccountId, err)
         setForm(accountConfig ?? DEFAULT_ACCOUNT_CONFIG)
-        setCaseTypes([])
-        setGreetings([])
       } finally {
         setLoading(false)
       }
@@ -114,6 +107,9 @@ export default function AccountPage() {
     }
   }
 
+  // case_types and greetings come embedded in the AI config response
+  const caseTypes = form.case_types_detail ?? []
+  const greetings = form.greetings ?? []
   const selectedCaseTypes = form.case_types ?? []
 
   if (loading) {
@@ -155,7 +151,7 @@ export default function AccountPage() {
             <Field label="Firm Name">
               <Input
                 name="firm_name"
-                value={form.firm_name }
+                value={form.firm_name ?? ''}
                 onChange={handleChange}
                 disabled={!isEditing}
                 placeholder="Law Office of..."
@@ -306,14 +302,12 @@ export default function AccountPage() {
         </div>
 
         {/* Greeting */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <SectionHeader
-            title="Greeting"
-            description="The greeting script the voice agent uses when a call begins."
-          />
-          {greetings.length === 0 ? (
-            <p className="text-sm text-gray-400">No greetings configured on the server.</p>
-          ) : (
+        {greetings.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <SectionHeader
+              title="Greeting"
+              description="The greeting script the voice agent uses when a call begins."
+            />
             <Field label="Select Greeting">
               <select
                 name="greeting_id"
@@ -328,8 +322,8 @@ export default function AccountPage() {
                 ))}
               </select>
             </Field>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Voice Agent */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -352,14 +346,12 @@ export default function AccountPage() {
         </div>
 
         {/* Case Types */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <SectionHeader
-            title="Case Types"
-            description="Select the practice areas this firm handles."
-          />
-          {caseTypes.length === 0 ? (
-            <p className="text-sm text-gray-400">No case types available from the server.</p>
-          ) : (
+        {caseTypes.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <SectionHeader
+              title="Case Types"
+              description="Select the practice areas this firm handles."
+            />
             <div className="grid grid-cols-2 gap-2">
               {caseTypes.map(ct => {
                 const selected = selectedCaseTypes.includes(ct.id)
@@ -389,8 +381,8 @@ export default function AccountPage() {
                 )
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {isEditing && (
           <div className="flex justify-end">

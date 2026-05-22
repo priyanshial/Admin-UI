@@ -16,6 +16,8 @@ async function request(path, options = {}) {
 // ── AI Config ─────────────────────────────────────────────────────────────────
 // GET    /api/ai-config/
 export const getAIConfigs = () => request('/api/ai-config/')
+// GET    /api/ai-config/:id/
+export const getAIConfig = (id) => request(`/api/ai-config/${id}/`)
 // POST   /api/ai-config/create/
 export const createAIConfig = (body) => request('/api/ai-config/create/', { method: 'POST', body: JSON.stringify(body) })
 // PUT    /api/ai-config/:id/update/

@@ -2,45 +2,66 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Bot, Trash2, ChevronRight } from 'lucide-react'
 import { useAppStore } from '../store/AppContext'
-import { deleteAIConfig } from '../api/core'
 
-function NewAccountForm({ onCreate, onCancel }) {
+function NewAccountForm({ onCreate, onCancel, existingNames }) {
   const [firmName, setFirmName] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSubmit(e) {
+  const isDuplicate = firmName.trim() &&
+    existingNames.some(n => n.toLowerCase() === firmName.trim().toLowerCase())
+
+  async function handleSubmit(e) {
     e.preventDefault()
     if (!firmName.trim()) return
-    onCreate(firmName.trim())
+    if (isDuplicate) {
+      setError('An account with this firm name already exists.')
+      return
+    }
+    setCreating(true)
+    setError('')
+    try {
+      await onCreate(firmName.trim())
+    } catch {
+      setError('Failed to create account. Is the server running?')
+      setCreating(false)
+    }
   }
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 flex items-center gap-3"
+      className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 space-y-2"
     >
-      <Bot className="w-5 h-5 text-blue-500 shrink-0" />
-      <input
-        autoFocus
-        type="text"
-        value={firmName}
-        onChange={e => setFirmName(e.target.value)}
-        placeholder="Firm name…"
-        className="flex-1 bg-transparent text-sm text-gray-900 placeholder-gray-400 border-0 border-b border-blue-300 focus:border-blue-500 focus:outline-none"
-      />
-      <button
-        type="submit"
-        disabled={!firmName.trim()}
-        className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors"
-      >
-        Create
-      </button>
-      <button
-        type="button"
-        onClick={onCancel}
-        className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
-      >
-        Cancel
-      </button>
+      <div className="flex items-center gap-3">
+        <Bot className="w-5 h-5 text-blue-500 shrink-0" />
+        <input
+          autoFocus
+          type="text"
+          value={firmName}
+          onChange={e => { setFirmName(e.target.value); setError('') }}
+          placeholder="Firm name…"
+          className="flex-1 bg-transparent text-sm text-gray-900 placeholder-gray-400 border-0 border-b border-blue-300 focus:border-blue-500 focus:outline-none"
+        />
+        <button
+          type="submit"
+          disabled={!firmName.trim() || creating || isDuplicate}
+          className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors"
+        >
+          {creating ? 'Creating…' : 'Create'}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+      {isDuplicate && !error && (
+        <p className="text-xs text-amber-600 pl-8">An account with this name already exists.</p>
+      )}
+      {error && <p className="text-xs text-red-500 pl-8">{error}</p>}
     </form>
   )
 }
@@ -82,29 +103,26 @@ function AccountCard({ account, onOpen, onDelete }) {
 }
 
 export default function AccountsPage() {
-  const { accounts, selectAccount, createAccount, deleteAccount } = useAppStore()
+  const { accounts, accountsLoading, selectAccount, createAccount, deleteAccount } = useAppStore()
   const navigate = useNavigate()
   const [showNewForm, setShowNewForm] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
 
+  const existingNames = accounts.map(a => a.accountConfig?.firm_name ?? '')
+
   function handleOpen(id) {
     selectAccount(id)
-    navigate('/account')
+    navigate(`/account/${id}`)
   }
 
-  function handleCreate(firmName) {
-   //createAccount(firmName)
+  async function handleCreate(firmName) {
+    const id = await createAccount(firmName)
     setShowNewForm(false)
-    navigate('/account')
+    navigate(`/account/${id}`)
   }
 
   async function handleDelete(id) {
-    const account = accounts.find(a => a.id === id)
-    // If it was saved to the backend, delete it there too
-    if (account?.backendId) {
-      try { await deleteAIConfig(account.backendId) } catch (_) {}
-    }
-    deleteAccount(id)
+    try { await deleteAccount(id) } catch {}
     setConfirmDelete(null)
   }
 
@@ -133,10 +151,17 @@ export default function AccountsPage() {
           <NewAccountForm
             onCreate={handleCreate}
             onCancel={() => setShowNewForm(false)}
+            existingNames={existingNames}
           />
         )}
 
-        {accounts.length === 0 && !showNewForm && (
+        {accountsLoading && (
+          <div className="text-center py-16 text-gray-400">
+            <p className="text-sm">Loading accounts…</p>
+          </div>
+        )}
+
+        {!accountsLoading && accounts.length === 0 && !showNewForm && (
           <div className="text-center py-16 text-gray-400">
             <Bot className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm font-medium">No accounts yet</p>
@@ -144,7 +169,7 @@ export default function AccountsPage() {
           </div>
         )}
 
-        {accounts.map(account => (
+        {!accountsLoading && accounts.map(account => (
           <AccountCard
             key={account.id}
             account={account}
@@ -154,12 +179,11 @@ export default function AccountsPage() {
         ))}
       </div>
 
-      {/* Delete confirmation modal */}
       {confirmDelete && accountToDelete && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <h3 className="text-base font-semibold text-gray-900 mb-2">
-              Delete {accountToDelete.accountConfig.name || 'this account'}?
+              Delete {accountToDelete.accountConfig.firm_name || 'this account'}?
             </h3>
             <p className="text-sm text-gray-500 mb-5">
               This will permanently remove the account and all its configuration. This cannot be undone.

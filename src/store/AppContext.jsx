@@ -58,7 +58,7 @@ export function AppProvider({ children }) {
 //   }
   // Create on backend, then add to local list
   const createAccount = useCallback(async (firmName) => {
-    const created = await createAIConfig({ name: firmName })
+    const created = await createAIConfig({ firm_name: firmName })
     const account = backendRecordToAccount(created)
     setAccounts(prev => [...prev, account])
     setActiveAccountId(account.id)

@@ -2,16 +2,16 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { Bot, ListChecks, Shield, Settings2, ChevronLeft, Users } from 'lucide-react'
 import { useAppStore } from '../store/AppContext'
 
-const configNavItems = [
-  { to: '/account',           label: 'AI Account',        icon: Bot },
-  { to: '/intake-templates',  label: 'Intake Templates',  icon: ListChecks },
-  { to: '/confirm-questions', label: 'Confirm Questions', icon: Shield },
-  { to: '/toggle-service',    label: 'Toggle Service',    icon: Settings2 },
-]
-
 export default function Layout({ children }) {
   const { accountConfig, activeAccountId } = useAppStore()
   const navigate = useNavigate()
+
+  const configNavItems = [
+    { to: `/account/${activeAccountId}`, label: 'AI Account',        icon: Bot },
+    { to: '/intake-templates',           label: 'Intake Templates',  icon: ListChecks },
+    { to: '/confirm-questions',          label: 'Confirm Questions', icon: Shield },
+    { to: '/toggle-service',             label: 'Toggle Service',    icon: Settings2 },
+  ]
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -39,7 +39,7 @@ export default function Layout({ children }) {
           <nav className="flex-1 px-3 py-2 space-y-1">
             {configNavItems.map(({ to, label, icon: Icon }) => (
               <NavLink
-                key={to}
+                key={label}
                 to={to}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
@@ -77,7 +77,7 @@ export default function Layout({ children }) {
         {/* Footer — shows active firm name */}
         <div className="px-6 py-4 border-t border-gray-200">
           <p className="text-xs text-gray-400 truncate">
-            {accountConfig?.name ?? 'No account selected'}
+            {accountConfig?.firm_name ?? 'No account selected'}
           </p>
         </div>
       </aside>
