@@ -1,12 +1,13 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { DEFAULT_ACCOUNT_CONFIG, DEFAULT_INTAKE_TEMPLATES, DEFAULT_CONFIRMATION_QUESTIONS, DEFAULT_SERVICES } from '../models/defaults'
-import { getAIConfigs, createAIConfig, deleteAIConfig } from '../api/core'
+import { getAIConfigs, deleteAIConfig } from '../api/core'
 
 const AppContext = createContext(null)
 
 function backendRecordToAccount(r) {
   return {
-    id: r.id,
+    id: r.id,               // backend UUID
+    isDraft: false,
     accountConfig: { ...DEFAULT_ACCOUNT_CONFIG, ...r, backendId: r.id },
     intakeTemplates: DEFAULT_INTAKE_TEMPLATES,
     confirmationQuestions: DEFAULT_CONFIRMATION_QUESTIONS,
@@ -33,50 +34,42 @@ export function AppProvider({ children }) {
 
   const activeAccount = accounts.find(a => a.id === activeAccountId) ?? null
 
-  const selectAccount = useCallback((id) => {
-    setActiveAccountId(id)
+  const selectAccount = useCallback((id) => setActiveAccountId(id), [])
+
+  // Create a LOCAL draft — no API call. AccountPage POSTs on first Save.
+  const createAccount = useCallback((firmName) => {
+    const tempId = `draft_${Date.now()}`
+    const draft = {
+      id: tempId,
+      isDraft: true,
+      accountConfig: { ...DEFAULT_ACCOUNT_CONFIG, name: firmName },
+      intakeTemplates: DEFAULT_INTAKE_TEMPLATES,
+      confirmationQuestions: DEFAULT_CONFIRMATION_QUESTIONS,
+      services: DEFAULT_SERVICES,
+    }
+    setAccounts(prev => [...prev, draft])
+    setActiveAccountId(tempId)
+    return tempId
   }, [])
 
-
-//   {
-//       "name": "Smith & Partners Law",
-//       "email": "contact@smithpartners.com",
-//       "additional_email": "billing@smithpartners.com",
-//       "phone": "212-555-0100",
-//       "additional_phone": "212-555-0101",
-//       "llm_type": "gpt-4",
-//       "incoming_call": "12125550100",
-//       "transfer_call": "12125550101",
-//       "address": "350 Fifth Avenue",
-//       "address2": "Suite 410",
-//       "city": "New York",
-//       "state": "NY",
-//       "zip": "10118",
-//       "did_phone_number": "12125550199",
-//       "notes": "Personal injury and criminal defense firm",
-//       "case_types": []
-//   }
-  // Create on backend, then add to local list
-  const createAccount = useCallback(async (firmName) => {
-    const created = await createAIConfig({ firm_name: firmName })
-    const account = backendRecordToAccount(created)
-    setAccounts(prev => [...prev, account])
-    setActiveAccountId(account.id)
-    return account.id
+  // After AccountPage successfully POSTs, replace the draft with the real backend record
+  const promoteDraft = useCallback((tempId, backendRecord) => {
+    setAccounts(prev =>
+      prev.map(a => a.id === tempId ? backendRecordToAccount(backendRecord) : a)
+    )
+    setActiveAccountId(backendRecord.id)
   }, [])
 
-  // Delete on backend, then remove from local list
+  // Delete — if it's a draft just remove locally, otherwise hit backend
   const deleteAccount = useCallback(async (id) => {
     const account = accounts.find(a => a.id === id)
-    const backendId = account?.accountConfig?.backendId
-    if (backendId) {
-      await deleteAIConfig(backendId)
+    if (account && !account.isDraft) {
+      await deleteAIConfig(id)
     }
     setAccounts(prev => prev.filter(a => a.id !== id))
     setActiveAccountId(prev => prev === id ? null : prev)
   }, [accounts])
 
-  // Update active account's in-memory config after a successful backend save
   const saveAccountConfig = useCallback((data) => {
     setAccounts(prev =>
       prev.map(a => a.id === activeAccountId ? { ...a, accountConfig: data } : a)
@@ -109,6 +102,7 @@ export function AppProvider({ children }) {
       activeAccount,
       selectAccount,
       createAccount,
+      promoteDraft,
       deleteAccount,
       accountConfig:         activeAccount?.accountConfig         ?? null,
       intakeTemplates:       activeAccount?.intakeTemplates       ?? [],

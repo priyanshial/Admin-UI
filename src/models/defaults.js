@@ -416,28 +416,31 @@ export const DEFAULT_INTAKE_TEMPLATES = withQuestions(RAW_INTAKE_TEMPLATES)
  */
 export const DEFAULT_ACCOUNT_CONFIG = {
   // Firm identity
-  name:             '',
-  email:            '',
-  additional_email: '',
+  name:                 '',
+  email:                '',
+  additional_email:     '',
   // Phone
-  phone:            '',
-  additional_phone: '',
+  phone:                '',
+  additional_phone:     '',
   // Address
-  address:          '',
-  address2:         '',
-  city:             '',
-  state:            '',
-  zip:              '',
-  // AI
-  llm_type:         '',
-  // Case types (array of UUIDs sent to backend)
-  case_types:       [],
-  // Voice agent
-  did_phone:        '',
+  address:              '',
+  address2:             '',
+  city:                 '',
+  state:                '',
+  zip:                  '',
+  // AI / Voice agent
+  agent_name:           '',
+  llm_model:            '',
+  custom_llm_endpoint:  '',
+  openai_api_key:       '',
+  asr_provider:         '',
+  tts_provider:         '',
+  transfer_to_phone:    '',
+  outbound_caller_id:   '',
+  incoming_call:        '',
+  timezone:             '',
   // Notes
-  notes:            '',
-  // Greeting (ID of the selected greeting from backend)
-  greeting_id:      '',
+  notes:                '',
 }
 
 /**

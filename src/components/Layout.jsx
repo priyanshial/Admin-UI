@@ -8,6 +8,7 @@ export default function Layout({ children }) {
 
   const configNavItems = [
     { to: `/account/${activeAccountId}`, label: 'AI Account',        icon: Bot },
+    { to: '/contacts',                   label: 'Contacts',          icon: Users },
     { to: '/intake-templates',           label: 'Intake Templates',  icon: ListChecks },
     { to: '/confirm-questions',          label: 'Confirm Questions', icon: Shield },
     { to: '/toggle-service',             label: 'Toggle Service',    icon: Settings2 },
@@ -77,7 +78,7 @@ export default function Layout({ children }) {
         {/* Footer — shows active firm name */}
         <div className="px-6 py-4 border-t border-gray-200">
           <p className="text-xs text-gray-400 truncate">
-            {accountConfig?.firm_name ?? 'No account selected'}
+            {accountConfig?.name ?? 'No account selected'}
           </p>
         </div>
       </aside>

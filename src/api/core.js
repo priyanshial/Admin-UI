@@ -13,86 +13,45 @@ async function request(path, options = {}) {
   return data
 }
 
-// ── AI Config ─────────────────────────────────────────────────────────────────
+// ── Company (AI Config) ───────────────────────────────────────────────────────
 // GET    /api/ai-config/
 export const getAIConfigs = () => request('/api/ai-config/')
 // GET    /api/ai-config/:id/
 export const getAIConfig = (id) => request(`/api/ai-config/${id}/`)
 // POST   /api/ai-config/create/
 export const createAIConfig = (body) => request('/api/ai-config/create/', { method: 'POST', body: JSON.stringify(body) })
-// PUT    /api/ai-config/:id/update/
+// PATCH  /api/ai-config/:id/update/
 export const updateAIConfig = (id, body) => request(`/api/ai-config/${id}/update/`, { method: 'PATCH', body: JSON.stringify(body) })
 // DELETE /api/ai-config/:id/delete/
 export const deleteAIConfig = (id) => request(`/api/ai-config/${id}/delete/`, { method: 'DELETE' })
 
-// ── Companies ─────────────────────────────────────────────────────────────────
-// GET    /api/companies/
-export const getCompanies = () => request('/api/companies/')
-// POST   /api/companies/
-export const createCompany = (body) => request('/api/companies/', { method: 'POST', body: JSON.stringify(body) })
-// GET    /api/companies/:id/
-export const getCompany = (id) => request(`/api/companies/${id}/`)
-// PUT    /api/companies/:id/
-export const updateCompany = (id, body) => request(`/api/companies/${id}/`, { method: 'PUT', body: JSON.stringify(body) })
-// DELETE /api/companies/:id/
-export const deleteCompany = (id) => request(`/api/companies/${id}/`, { method: 'DELETE' })
+// ── Contacts ──────────────────────────────────────────────────────────────────
+// GET    /api/ai-config/:company_id/contacts/
+export const getContacts = (companyId) => request(`/api/ai-config/${companyId}/contacts/`)
+// GET    /api/ai-config/:company_id/contacts/:id/
+export const getContact = (companyId, id) => request(`/api/ai-config/${companyId}/contacts/${id}/`)
+// POST   /api/ai-config/:company_id/contacts/
+export const createContact = (companyId, body) => request(`/api/ai-config/${companyId}/contacts/`, { method: 'POST', body: JSON.stringify(body) })
+// PATCH  /api/ai-config/:company_id/contacts/:id/
+export const updateContact = (companyId, id, body) => request(`/api/ai-config/${companyId}/contacts/${id}/`, { method: 'PATCH', body: JSON.stringify(body) })
+// DELETE /api/ai-config/:company_id/contacts/:id/
+export const deleteContact = (companyId, id) => request(`/api/ai-config/${companyId}/contacts/${id}/`, { method: 'DELETE' })
 
-// ── Company Fields ────────────────────────────────────────────────────────────
-// GET    /api/company-fields/
-export const getCompanyFields = () => request('/api/company-fields/')
-// POST   /api/company-fields/
-export const createCompanyField = (body) => request('/api/company-fields/', { method: 'POST', body: JSON.stringify(body) })
-// PUT    /api/company-fields/:id/
-export const updateCompanyField = (id, body) => request(`/api/company-fields/${id}/`, { method: 'PUT', body: JSON.stringify(body) })
-// DELETE /api/company-fields/:id/
-export const deleteCompanyField = (id) => request(`/api/company-fields/${id}/`, { method: 'DELETE' })
+// ── Intake Templates (Case Types) ─────────────────────────────────────────────
+// GET    /api/ai-config/intake-templates/?company_id=:id
+export const getIntakeTemplates = (companyId) => request(`/api/ai-config/intake-templates/?company_id=${companyId}`)
+// PATCH  /api/ai-config/intake-templates/
+export const updateIntakeTemplates = (body) => request('/api/ai-config/intake-templates/', { method: 'PATCH', body: JSON.stringify(body) })
 
-// ── Law Office Contacts ───────────────────────────────────────────────────────
-// GET    /api/law-office-contacts/
-export const getLawOfficeContacts = () => request('/api/law-office-contacts/')
-// POST   /api/law-office-contacts/
-export const createLawOfficeContact = (body) => request('/api/law-office-contacts/', { method: 'POST', body: JSON.stringify(body) })
-// PUT    /api/law-office-contacts/:id/
-export const updateLawOfficeContact = (id, body) => request(`/api/law-office-contacts/${id}/`, { method: 'PUT', body: JSON.stringify(body) })
-// DELETE /api/law-office-contacts/:id/
-export const deleteLawOfficeContact = (id) => request(`/api/law-office-contacts/${id}/`, { method: 'DELETE' })
-
-// ── Greetings ─────────────────────────────────────────────────────────────────
-// GET    /api/greetings/
-export const getGreetings = () => request('/api/greetings/')
-// POST   /api/greetings/
-export const createGreeting = (body) => request('/api/greetings/', { method: 'POST', body: JSON.stringify(body) })
-// PUT    /api/greetings/:id/
-export const updateGreeting = (id, body) => request(`/api/greetings/${id}/`, { method: 'PUT', body: JSON.stringify(body) })
-// DELETE /api/greetings/:id/
-export const deleteGreeting = (id) => request(`/api/greetings/${id}/`, { method: 'DELETE' })
-
-// ── Case Types ────────────────────────────────────────────────────────────────
-// GET    /api/case-types/
-export const getCaseTypes = () => request('/api/case-types/')
-// POST   /api/case-types/
-export const createCaseType = (body) => request('/api/case-types/', { method: 'POST', body: JSON.stringify(body) })
-// PUT    /api/case-types/:id/
-export const updateCaseType = (id, body) => request(`/api/case-types/${id}/`, { method: 'PUT', body: JSON.stringify(body) })
-// DELETE /api/case-types/:id/
-export const deleteCaseType = (id) => request(`/api/case-types/${id}/`, { method: 'DELETE' })
-
-// ── Questions ─────────────────────────────────────────────────────────────────
-// GET    /api/questions/
-export const getQuestions = () => request('/api/questions/')
-// POST   /api/questions/
-export const createQuestion = (body) => request('/api/questions/', { method: 'POST', body: JSON.stringify(body) })
-// PUT    /api/questions/:id/
-export const updateQuestion = (id, body) => request(`/api/questions/${id}/`, { method: 'PUT', body: JSON.stringify(body) })
-// DELETE /api/questions/:id/
-export const deleteQuestion = (id) => request(`/api/questions/${id}/`, { method: 'DELETE' })
-
-// ── Question Options ──────────────────────────────────────────────────────────
-// GET    /api/question-options/
-export const getQuestionOptions = () => request('/api/question-options/')
-// POST   /api/question-options/
-export const createQuestionOption = (body) => request('/api/question-options/', { method: 'POST', body: JSON.stringify(body) })
-// PUT    /api/question-options/:id/
-export const updateQuestionOption = (id, body) => request(`/api/question-options/${id}/`, { method: 'PUT', body: JSON.stringify(body) })
-// DELETE /api/question-options/:id/
-export const deleteQuestionOption = (id) => request(`/api/question-options/${id}/`, { method: 'DELETE' })
+// ── Transfer Rules ────────────────────────────────────────────────────────────
+// GET    /api/ai-config/transfer-rules/?company_id=:id
+export const getTransferRules = (companyId) => request(`/api/ai-config/transfer-rules/?company_id=${companyId}`)
+// GET    /api/ai-config/transfer-rules/?company_id=:id&case_type_id=:id
+export const getTransferRulesByCaseType = (companyId, caseTypeId) =>
+  request(`/api/ai-config/transfer-rules/?company_id=${companyId}&case_type_id=${caseTypeId}`)
+// POST   /api/ai-config/transfer-rules/
+export const createTransferRule = (body) => request('/api/ai-config/transfer-rules/', { method: 'POST', body: JSON.stringify(body) })
+// PATCH  /api/ai-config/transfer-rules/:id/
+export const updateTransferRule = (id, body) => request(`/api/ai-config/transfer-rules/${id}/`, { method: 'PATCH', body: JSON.stringify(body) })
+// DELETE /api/ai-config/transfer-rules/:id/
+export const deleteTransferRule = (id) => request(`/api/ai-config/transfer-rules/${id}/`, { method: 'DELETE' })
