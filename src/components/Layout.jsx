@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Bot, ListChecks, Shield, Settings2, ChevronLeft, Users } from 'lucide-react'
+import { Bot, ListChecks, Shield, Settings2, ChevronLeft, Users, PhoneForwarded } from 'lucide-react'
 import { useAppStore } from '../store/AppContext'
 
 export default function Layout({ children }) {
@@ -9,6 +9,7 @@ export default function Layout({ children }) {
   const configNavItems = [
     { to: `/account/${activeAccountId}`, label: 'AI Account',        icon: Bot },
     { to: '/contacts',                   label: 'Contacts',          icon: Users },
+    { to: '/transfer-rules',             label: 'Transfer Rules',    icon: PhoneForwarded },
     { to: '/intake-templates',           label: 'Intake Templates',  icon: ListChecks },
     { to: '/confirm-questions',          label: 'Confirm Questions', icon: Shield },
     { to: '/toggle-service',             label: 'Toggle Service',    icon: Settings2 },

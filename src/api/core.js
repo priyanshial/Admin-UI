@@ -49,8 +49,9 @@ export const getTransferRules = (companyId) => request(`/api/ai-config/transfer-
 // GET    /api/ai-config/transfer-rules/?company_id=:id&case_type_id=:id
 export const getTransferRulesByCaseType = (companyId, caseTypeId) =>
   request(`/api/ai-config/transfer-rules/?company_id=${companyId}&case_type_id=${caseTypeId}`)
-// POST   /api/ai-config/transfer-rules/
-export const createTransferRule = (body) => request('/api/ai-config/transfer-rules/', { method: 'POST', body: JSON.stringify(body) })
+// POST   /api/ai-config/transfer-rules/  — replaces ALL rules for that company+case_type
+// body: { company, case_type, contacts: [{ id, transfer_type }] }
+export const setTransferRules = (body) => request('/api/ai-config/transfer-rules/', { method: 'POST', body: JSON.stringify(body) })
 // PATCH  /api/ai-config/transfer-rules/:id/
 export const updateTransferRule = (id, body) => request(`/api/ai-config/transfer-rules/${id}/`, { method: 'PATCH', body: JSON.stringify(body) })
 // DELETE /api/ai-config/transfer-rules/:id/

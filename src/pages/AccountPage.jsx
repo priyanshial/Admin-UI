@@ -215,8 +215,8 @@ export default function AccountPage() {
             </Field>
             <Field label="Address Line 2">
               <Input
-                name="address2"
-                value={form.address2 ?? ''}
+                name="additional_address"
+                value={form.additional_address ?? ''}
                 onChange={handleChange}
                 disabled={!isEditing}
                 placeholder="Suite 100"

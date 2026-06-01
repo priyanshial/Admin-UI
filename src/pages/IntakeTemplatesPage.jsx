@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Save, ChevronRight, ChevronDown, GitBranch } from 'lucide-react'
 import { useAppStore } from '../store/AppContext'
-import { getIntakeTemplates, updateIntakeTemplates, getContacts } from '../api/core'
+import { getIntakeTemplates, updateIntakeTemplates } from '../api/core'
 import { parseApiError } from '../api/config'
 
 const FIELD_TYPE_STYLES = {
@@ -34,7 +34,8 @@ function Toggle({ checked, onChange }) {
   )
 }
 
-function QuestionRow({ question, onToggle, onQuestionChange }) {
+// Questions are read-only — backend manages the text, UI can only toggle enabled
+function QuestionRow({ question, onToggle }) {
   const enabled = question.enabled ?? true
   return (
     <div className={`flex items-start gap-3 px-3 py-2.5 rounded-lg transition-opacity ${enabled ? '' : 'opacity-40'}`}>
@@ -43,13 +44,9 @@ function QuestionRow({ question, onToggle, onQuestionChange }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-800">{question.label}</p>
-        <input
-          type="text"
-          value={question.question ?? ''}
-          onChange={e => onQuestionChange(e.target.value)}
-          placeholder="Enter the question the agent will speak…"
-          className="mt-1 w-full text-xs text-gray-500 bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none focus:text-gray-700 transition-colors placeholder-gray-300"
-        />
+        {question.question && (
+          <p className="mt-0.5 text-xs text-gray-400 italic">"{question.question}"</p>
+        )}
       </div>
       <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
         {question.conditionalOn && (
@@ -71,7 +68,7 @@ function QuestionRow({ question, onToggle, onQuestionChange }) {
   )
 }
 
-function TemplateCard({ template, contacts, onToggleTemplate, onToggleQuestion, onQuestionChange, onContactChange }) {
+function TemplateCard({ template, onToggleTemplate, onToggleQuestion }) {
   const [expanded, setExpanded] = useState(false)
   const enabledCount = template.questions.filter(q => q.enabled ?? true).length
 
@@ -95,22 +92,6 @@ function TemplateCard({ template, contacts, onToggleTemplate, onToggleQuestion, 
             {enabledCount} / {template.questions.length} questions enabled
           </p>
         </div>
-        {/* Transfer-to contact dropdown — only shown when template is enabled */}
-        {template.enabled && contacts.length > 0 && (
-          <select
-            value={template.transfer_contact_id ?? ''}
-            onChange={e => { e.stopPropagation(); onContactChange(e.target.value) }}
-            onClick={e => e.stopPropagation()}
-            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          >
-            <option value="">Transfer to…</option>
-            {contacts.map(c => (
-              <option key={c.id} value={c.id}>
-                {[c.first_name, c.last_name].filter(Boolean).join(' ')}
-              </option>
-            ))}
-          </select>
-        )}
         <Toggle checked={template.enabled} onChange={onToggleTemplate} />
       </div>
 
@@ -121,7 +102,6 @@ function TemplateCard({ template, contacts, onToggleTemplate, onToggleQuestion, 
               key={q.id}
               question={q}
               onToggle={() => onToggleQuestion(q.id)}
-              onQuestionChange={text => onQuestionChange(q.id, text)}
             />
           ))}
         </div>
@@ -130,7 +110,7 @@ function TemplateCard({ template, contacts, onToggleTemplate, onToggleQuestion, 
   )
 }
 
-function SectionGroup({ title, templates, contacts, onToggleTemplate, onToggleQuestion, onQuestionChange, onContactChange }) {
+function SectionGroup({ title, templates, onToggleTemplate, onToggleQuestion }) {
   return (
     <section>
       <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{title}</h3>
@@ -139,11 +119,8 @@ function SectionGroup({ title, templates, contacts, onToggleTemplate, onToggleQu
           <TemplateCard
             key={t.id}
             template={t}
-            contacts={contacts}
             onToggleTemplate={() => onToggleTemplate(t.id)}
             onToggleQuestion={(qId) => onToggleQuestion(t.id, qId)}
-            onQuestionChange={(qId, text) => onQuestionChange(t.id, qId, text)}
-            onContactChange={(contactId) => onContactChange(t.id, contactId)}
           />
         ))}
       </div>
@@ -155,33 +132,26 @@ export default function IntakeTemplatesPage() {
   const { activeAccountId } = useAppStore()
 
   const [templates, setTemplates] = useState([])
-  const [contacts, setContacts] = useState([])
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!activeAccountId) return
-    Promise.all([
-      getIntakeTemplates(activeAccountId),
-      getContacts(activeAccountId).catch(() => []),
-    ])
-      .then(([tmpl, ctcts]) => {
-        setTemplates(tmpl.map(t => ({
-          ...t,
-          questions: t.questions.map(q => ({ enabled: true, ...q })),
-        })))
-        setContacts(ctcts)
-      })
-      .catch(() => {})
+    setLoading(true)
+    getIntakeTemplates(activeAccountId)
+      .then(data => setTemplates(data))
+      .catch(() => setTemplates([]))
       .finally(() => setLoading(false))
   }, [activeAccountId])
 
+  // Toggle a case type enabled/disabled by UUID
   function toggleTemplate(id) {
     setTemplates(prev => prev.map(t => t.id === id ? { ...t, enabled: !t.enabled } : t))
     setSaved(false)
   }
 
+  // Toggle a question enabled/disabled — templateId is the case type UUID
   function toggleQuestion(templateId, questionId) {
     setTemplates(prev =>
       prev.map(t =>
@@ -193,36 +163,19 @@ export default function IntakeTemplatesPage() {
     setSaved(false)
   }
 
-  function changeQuestion(templateId, questionId, text) {
-    setTemplates(prev =>
-      prev.map(t =>
-        t.id === templateId
-          ? { ...t, questions: t.questions.map(q => q.id === questionId ? { ...q, question: text } : q) }
-          : t
-      )
-    )
-    setSaved(false)
-  }
-
-  function changeContact(templateId, contactId) {
-    setTemplates(prev =>
-      prev.map(t => t.id === templateId ? { ...t, transfer_contact_id: contactId || null } : t)
-    )
-    setSaved(false)
-  }
-
   async function handleSave() {
     setError('')
     try {
       await updateIntakeTemplates({
         company_id: activeAccountId,
-        case_types: templates.map(t => ({ id: t.id, enabled: t.enabled })),
+        // case_types[].id = slug (per contract: "case_types[].id = case type slug")
+        case_types: templates.map(t => ({ id: t.slug, enabled: t.enabled })),
+        // questions[].template_id = slug, questions[].id = field_id
         questions: templates.flatMap(t =>
           t.questions.map(q => ({
-            template_id: t.id,
+            template_id: t.slug,
             id: q.id,
             enabled: q.enabled ?? true,
-            question: q.question ?? '',
           }))
         ),
       })
@@ -245,13 +198,21 @@ export default function IntakeTemplatesPage() {
     )
   }
 
+  if (templates.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <p className="text-sm text-gray-400">No intake templates found for this account.</p>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Intake Templates</h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Enable templates, toggle questions, and assign call transfers per case type.
+            Enable case types and toggle individual questions per call type.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -272,33 +233,24 @@ export default function IntakeTemplatesPage() {
           <SectionGroup
             title="Practice Areas"
             templates={practiceAreas}
-            contacts={contacts}
             onToggleTemplate={toggleTemplate}
             onToggleQuestion={toggleQuestion}
-            onQuestionChange={changeQuestion}
-            onContactChange={changeContact}
           />
         )}
         {thirdParty.length > 0 && (
           <SectionGroup
             title="Third-Party Callers"
             templates={thirdParty}
-            contacts={contacts}
             onToggleTemplate={toggleTemplate}
             onToggleQuestion={toggleQuestion}
-            onQuestionChange={changeQuestion}
-            onContactChange={changeContact}
           />
         )}
         {general.length > 0 && (
           <SectionGroup
             title="General"
             templates={general}
-            contacts={contacts}
             onToggleTemplate={toggleTemplate}
             onToggleQuestion={toggleQuestion}
-            onQuestionChange={changeQuestion}
-            onContactChange={changeContact}
           />
         )}
       </div>

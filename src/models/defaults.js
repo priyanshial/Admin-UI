@@ -424,7 +424,7 @@ export const DEFAULT_ACCOUNT_CONFIG = {
   additional_phone:     '',
   // Address
   address:              '',
-  address2:             '',
+  additional_address:   '',
   city:                 '',
   state:                '',
   zip:                  '',
