@@ -34,8 +34,7 @@ function Toggle({ checked, onChange }) {
   )
 }
 
-// Questions are read-only — backend manages the text, UI can only toggle enabled
-function QuestionRow({ question, onToggle }) {
+function QuestionRow({ question, onToggle, onChangeText }) {
   const enabled = question.enabled ?? true
   return (
     <div className={`flex items-start gap-3 px-3 py-2.5 rounded-lg transition-opacity ${enabled ? '' : 'opacity-40'}`}>
@@ -43,10 +42,14 @@ function QuestionRow({ question, onToggle }) {
         <Toggle checked={enabled} onChange={onToggle} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800">{question.label}</p>
-        {question.question && (
-          <p className="mt-0.5 text-xs text-gray-400 italic">"{question.question}"</p>
-        )}
+        <p className="text-sm font-medium text-gray-800 mb-1">{question.label}</p>
+        <input
+          type="text"
+          value={question.question ?? ''}
+          onChange={e => onChangeText(e.target.value)}
+          placeholder="Question text…"
+          className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-700"
+        />
       </div>
       <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
         {question.conditionalOn && (
@@ -68,7 +71,7 @@ function QuestionRow({ question, onToggle }) {
   )
 }
 
-function TemplateCard({ template, onToggleTemplate, onToggleQuestion }) {
+function TemplateCard({ template, onToggleTemplate, onToggleQuestion, onChangeQuestion }) {
   const [expanded, setExpanded] = useState(false)
   const enabledCount = template.questions.filter(q => q.enabled ?? true).length
 
@@ -102,6 +105,7 @@ function TemplateCard({ template, onToggleTemplate, onToggleQuestion }) {
               key={q.id}
               question={q}
               onToggle={() => onToggleQuestion(q.id)}
+              onChangeText={text => onChangeQuestion(q.id, text)}
             />
           ))}
         </div>
@@ -110,7 +114,7 @@ function TemplateCard({ template, onToggleTemplate, onToggleQuestion }) {
   )
 }
 
-function SectionGroup({ title, templates, onToggleTemplate, onToggleQuestion }) {
+function SectionGroup({ title, templates, onToggleTemplate, onToggleQuestion, onChangeQuestion }) {
   return (
     <section>
       <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{title}</h3>
@@ -121,6 +125,7 @@ function SectionGroup({ title, templates, onToggleTemplate, onToggleQuestion }) 
             template={t}
             onToggleTemplate={() => onToggleTemplate(t.id)}
             onToggleQuestion={(qId) => onToggleQuestion(t.id, qId)}
+            onChangeQuestion={(qId, text) => onChangeQuestion(t.id, qId, text)}
           />
         ))}
       </div>
@@ -163,6 +168,17 @@ export default function IntakeTemplatesPage() {
     setSaved(false)
   }
 
+  function changeQuestion(templateId, questionId, text) {
+    setTemplates(prev =>
+      prev.map(t =>
+        t.id === templateId
+          ? { ...t, questions: t.questions.map(q => q.id === questionId ? { ...q, question: text } : q) }
+          : t
+      )
+    )
+    setSaved(false)
+  }
+
   async function handleSave() {
     setError('')
     try {
@@ -176,6 +192,7 @@ export default function IntakeTemplatesPage() {
             template_id: t.slug,
             id: q.id,
             enabled: q.enabled ?? true,
+            question: q.question ?? '',
           }))
         ),
       })
@@ -235,6 +252,7 @@ export default function IntakeTemplatesPage() {
             templates={practiceAreas}
             onToggleTemplate={toggleTemplate}
             onToggleQuestion={toggleQuestion}
+            onChangeQuestion={changeQuestion}
           />
         )}
         {thirdParty.length > 0 && (
@@ -243,6 +261,7 @@ export default function IntakeTemplatesPage() {
             templates={thirdParty}
             onToggleTemplate={toggleTemplate}
             onToggleQuestion={toggleQuestion}
+            onChangeQuestion={changeQuestion}
           />
         )}
         {general.length > 0 && (
@@ -251,6 +270,7 @@ export default function IntakeTemplatesPage() {
             templates={general}
             onToggleTemplate={toggleTemplate}
             onToggleQuestion={toggleQuestion}
+            onChangeQuestion={changeQuestion}
           />
         )}
       </div>
