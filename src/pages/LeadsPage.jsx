@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Inbox, PhoneMissed, Clock, AlertCircle, FlaskConical } from 'lucide-react'
+import { Search, Inbox, PhoneMissed, Clock, ChevronUp, ChevronDown, FlaskConical } from 'lucide-react'
 import { useAppStore } from '../store/AppContext'
 import { getLeads, USE_FIXTURES, isPersistedAccount } from '../api/leads'
 import Badge from '../components/Badge'
@@ -74,6 +74,7 @@ export default function LeadsPage() {
   const [status, setStatus] = useState('all')
   const [disposition, setDisposition] = useState('all')
   const [range, setRange] = useState('all')
+  const [sortDesc, setSortDesc] = useState(true)
 
   useEffect(() => {
     if (unsavedAccount) return
@@ -118,16 +119,20 @@ export default function LeadsPage() {
     })
   }, [leads, search, caseType, status, disposition, range, now])
 
+  const sorted = useMemo(() => {
+    const ts = l => new Date(l.started_at).getTime() || 0
+    return [...filtered].sort((a, b) => sortDesc ? ts(b) - ts(a) : ts(a) - ts(b))
+  }, [filtered, sortDesc])
+
   // Every figure here reads straight off the payload. Nothing is inferred.
   const stats = useMemo(() => {
     const total = filtered.length
     const awaitingCallback = filtered.filter(l => String(l.disposition ?? '').startsWith('callback')).length
-    const lowConfidence = filtered.filter(l => fieldsNeedingReview(l).length > 0).length
     const durations = filtered.map(l => l.duration_sec).filter(d => typeof d === 'number')
     const avgDuration = durations.length
       ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
       : null
-    return { total, awaitingCallback, lowConfidence, avgDuration }
+    return { total, awaitingCallback, avgDuration }
   }, [filtered])
 
   const hasFilters = search || caseType !== 'all' || status !== 'all'
@@ -175,7 +180,7 @@ export default function LeadsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-6">
         <Stat
           icon={Inbox} label="Leads captured" value={stats.total} tone="blue"
           sub={RANGES[range].label.toLowerCase()}
@@ -187,10 +192,6 @@ export default function LeadsPage() {
         <Stat
           icon={Clock} label="Average call" value={formatDuration(stats.avgDuration)} tone="indigo"
           sub="time on the phone"
-        />
-        <Stat
-          icon={AlertCircle} label="Low confidence" value={stats.lowConfidence}
-          sub="fields the agent misheard"
         />
       </div>
 
@@ -267,15 +268,27 @@ export default function LeadsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                {['Caller', 'Case type', 'Received', 'Length', 'Outcome', 'Status'].map(h => (
-                  <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">
-                    {h}
-                  </th>
+                {['Caller', 'Case type'].map(h => (
+                  <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">{h}</th>
+                ))}
+                <th className="text-left px-4 py-2.5">
+                  <button
+                    onClick={() => setSortDesc(d => !d)}
+                    className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800 transition-colors"
+                  >
+                    Received
+                    {sortDesc
+                      ? <ChevronDown className="w-3.5 h-3.5" />
+                      : <ChevronUp className="w-3.5 h-3.5" />}
+                  </button>
+                </th>
+                {['Length', 'Outcome', 'Status'].map(h => (
+                  <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map(lead => {
+              {sorted.map(lead => {
                 const name = fullName(lead)
                 const review = fieldsNeedingReview(lead).length
                 const dispo = DISPOSITIONS[lead.disposition]

@@ -10,7 +10,6 @@ import Badge from '../components/Badge'
 import {
   DISPOSITIONS, LEAD_STATUSES, dispositionLabel,
   fullName, formatDuration, formatDateTime, formatPhone,
-  fieldsNeedingReview,
 } from '../models/leads'
 
 function MetaItem({ icon: Icon, label, value, tone }) {
@@ -40,22 +39,12 @@ function AnswersTab({ lead }) {
         <div key={a.question_id} className="py-3 grid grid-cols-5 gap-4">
           <div className="col-span-2">
             <p className="text-sm text-gray-500">{a.question_text}</p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <p className="text-xs text-gray-300 font-mono">{a.question_id}</p>
-              {a.question_text_is_inferred && (
-                <span
-                  className="text-xs text-amber-600"
-                  title="This question is not in the current template, so wording is inferred from the field id"
-                >
-                  inferred
-                </span>
-              )}
-            </div>
+            <p className="text-xs text-gray-300 font-mono mt-0.5">{a.question_id}</p>
           </div>
           <div className="col-span-3">
             <div className="flex items-start gap-2 flex-wrap">
               <p className="text-sm text-gray-900">{a.value || <span className="text-gray-300">-</span>}</p>
-              {a.needs_review && <Badge tone="amber">Needs review</Badge>}
+              {a.needs_review && <Badge tone="amber">Low confidence</Badge>}
             </div>
           </div>
         </div>
@@ -153,7 +142,6 @@ export default function LeadDetailPage() {
 
   const name = fullName(lead)
   const dispo = DISPOSITIONS[lead.disposition]
-  const review = fieldsNeedingReview(lead)
   const aniMismatch = lead.callback_phone
     && lead.callback_phone.replace(/\D/g, '').slice(-10) !== lead.caller_ani.replace(/\D/g, '').slice(-10)
 
@@ -191,19 +179,6 @@ export default function LeadDetailPage() {
           ))}
         </select>
       </div>
-
-      {review.length > 0 && (
-        <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
-          <p className="text-sm font-medium text-amber-900">
-            {review.length} low-confidence field{review.length > 1 ? 's' : ''}
-          </p>
-          <p className="text-xs text-amber-700 mt-0.5">
-            The agent reported that it may have misheard{' '}
-            {review.map(a => a.question_text.replace(/\?$/, '').toLowerCase()).join(', ')}.
-            Worth confirming before you call back.
-          </p>
-        </div>
-      )}
 
       {lead.abandoned_at_question && (
         <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
