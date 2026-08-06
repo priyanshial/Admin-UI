@@ -1,12 +1,17 @@
-import { NavLink, useNavigate } from 'react-router-dom'
-import { Bot, ListChecks, Shield, Settings2, ChevronLeft, Users, PhoneForwarded } from 'lucide-react'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { Bot, ListChecks, Shield, Settings2, ChevronLeft, Users, PhoneForwarded, Inbox } from 'lucide-react'
 import { useAppStore } from '../store/AppContext'
 
 export default function Layout({ children }) {
   const { accountConfig, activeAccountId } = useAppStore()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+
+  // The leads table needs more room than the config forms.
+  const wide = pathname.startsWith('/leads')
 
   const configNavItems = [
+    { to: '/leads',                      label: 'Leads',             icon: Inbox },
     { to: `/account/${activeAccountId}`, label: 'AI Account',        icon: Bot },
     { to: '/contacts',                   label: 'Contacts',          icon: Users },
     { to: '/transfer-rules',             label: 'Transfer Rules',    icon: PhoneForwarded },
@@ -85,7 +90,7 @@ export default function Layout({ children }) {
       </aside>
 
       <main className="flex-1 overflow-auto">
-        <div className="max-w-3xl mx-auto px-8 py-8">
+        <div className={`${wide ? 'max-w-6xl' : 'max-w-3xl'} mx-auto px-8 py-8`}>
           {children}
         </div>
       </main>

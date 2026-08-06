@@ -8,7 +8,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'https://crlqbts2-8000.use.devtunnels.ms/',
+        target: process.env.VITE_API_TARGET ?? 'https://7kqj89gs-8000.usw2.devtunnels.ms/',
         changeOrigin: true,
         secure: true,
       },

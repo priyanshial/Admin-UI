@@ -11,6 +11,8 @@ import ToggleServicePage from './pages/ToggleServicePage'
 import ConfirmQuestionsPage from './pages/ConfirmQuestionsPage'
 import ContactsPage from './pages/ContactsPage'
 import TransferRulesPage from './pages/TransferRulesPage'
+import LeadsPage from './pages/LeadsPage'
+import LeadDetailPage from './pages/LeadDetailPage'
 
 // Rendered inside AppProvider so it can read activeAccountId from context
 function AppRoutes() {
@@ -22,6 +24,8 @@ function AppRoutes() {
       <Route path="/account/:id" element={<AccountPage />} />
       {activeAccountId ? (
         <>
+          <Route path="/leads"             element={<LeadsPage />} />
+          <Route path="/leads/:id"         element={<LeadDetailPage />} />
           <Route path="/contacts"          element={<ContactsPage />} />
           <Route path="/transfer-rules"    element={<TransferRulesPage />} />
           <Route path="/intake-templates"  element={<IntakeTemplatesPage />} />
