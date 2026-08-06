@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Moon, AlertTriangle, Inbox, PhoneIncoming, FlaskConical } from 'lucide-react'
+import { Search, Inbox, PhoneMissed, Clock, AlertCircle, FlaskConical } from 'lucide-react'
 import { useAppStore } from '../store/AppContext'
 import { getLeads, USE_FIXTURES, isPersistedAccount } from '../api/leads'
 import Badge from '../components/Badge'
 import {
-  DISPOSITIONS, LEAD_STATUSES, URGENCIES,
+  DISPOSITIONS, LEAD_STATUSES, dispositionLabel,
   fullName, formatDuration, formatRelative, formatDateTime,
-  isAfterHours, fieldsNeedingReview,
+  fieldsNeedingReview,
 } from '../models/leads'
 
 const RANGES = {
@@ -22,7 +22,7 @@ function Stat({ icon: Icon, label, value, sub, tone = 'gray' }) {
     gray:  'text-gray-400 bg-gray-100',
     blue:  'text-blue-600 bg-blue-50',
     amber: 'text-amber-600 bg-amber-50',
-    red:   'text-red-600 bg-red-50',
+    indigo:'text-indigo-600 bg-indigo-50',
   }[tone]
 
   return (
@@ -118,19 +118,16 @@ export default function LeadsPage() {
     })
   }, [leads, search, caseType, status, disposition, range, now])
 
-  // Stats reflect the current filter, so they stay honest as you slice the data.
+  // Every figure here reads straight off the payload. Nothing is inferred.
   const stats = useMemo(() => {
     const total = filtered.length
-    const afterHours = filtered.filter(l => isAfterHours(l.started_at)).length
-    const urgent = filtered.filter(l => l.urgency === 'high').length
-    const review = filtered.filter(l => fieldsNeedingReview(l).length > 0).length
-    return {
-      total,
-      afterHours,
-      afterHoursPct: total ? Math.round((afterHours / total) * 100) : 0,
-      urgent,
-      review,
-    }
+    const awaitingCallback = filtered.filter(l => String(l.disposition ?? '').startsWith('callback')).length
+    const lowConfidence = filtered.filter(l => fieldsNeedingReview(l).length > 0).length
+    const durations = filtered.map(l => l.duration_sec).filter(d => typeof d === 'number')
+    const avgDuration = durations.length
+      ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+      : null
+    return { total, awaitingCallback, lowConfidence, avgDuration }
   }, [filtered])
 
   const hasFilters = search || caseType !== 'all' || status !== 'all'
@@ -184,16 +181,16 @@ export default function LeadsPage() {
           sub={RANGES[range].label.toLowerCase()}
         />
         <Stat
-          icon={Moon} label="After hours" value={`${stats.afterHoursPct}%`} tone="amber"
-          sub={`${stats.afterHours} would have hit voicemail`}
+          icon={PhoneMissed} label="Awaiting callback" value={stats.awaitingCallback} tone="amber"
+          sub="caller was not connected"
         />
         <Stat
-          icon={AlertTriangle} label="Urgent" value={stats.urgent} tone="red"
-          sub="court dates, expiring status"
+          icon={Clock} label="Average call" value={formatDuration(stats.avgDuration)} tone="indigo"
+          sub="time on the phone"
         />
         <Stat
-          icon={PhoneIncoming} label="Needs review" value={stats.review}
-          sub="low-confidence fields"
+          icon={AlertCircle} label="Low confidence" value={stats.lowConfidence}
+          sub="fields the agent misheard"
         />
       </div>
 
@@ -281,7 +278,6 @@ export default function LeadsPage() {
               {filtered.map(lead => {
                 const name = fullName(lead)
                 const review = fieldsNeedingReview(lead).length
-                const afterHours = isAfterHours(lead.started_at)
                 const dispo = DISPOSITIONS[lead.disposition]
                 const st = LEAD_STATUSES[lead.status]
 
@@ -296,12 +292,9 @@ export default function LeadsPage() {
                         <p className="text-sm font-medium text-gray-900">
                           {name || 'Unidentified caller'}
                         </p>
-                        {lead.urgency === 'high' && (
-                          <Badge tone={URGENCIES.high.tone}>{URGENCIES.high.label}</Badge>
-                        )}
                         {review > 0 && (
                           <Badge tone="amber" className="font-normal">
-                            {review} to review
+                            {review} low confidence
                           </Badge>
                         )}
                       </div>
@@ -310,27 +303,22 @@ export default function LeadsPage() {
                       </p>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-sm text-gray-700">{lead.case_type_label}</p>
+                      <p className="text-sm text-gray-700">{lead.case_type_label || '-'}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {lead.intake_completion_pct}% complete
+                        {lead.answers.length} answers
                       </p>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-sm text-gray-700">{formatRelative(lead.started_at)}</p>
-                        {afterHours && (
-                          <Moon className="w-3.5 h-3.5 text-amber-500" title="Outside business hours" />
-                        )}
-                      </div>
+                      <p className="text-sm text-gray-700">{formatRelative(lead.started_at)}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(lead.started_at)}</p>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
                       {formatDuration(lead.duration_sec)}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge tone={dispo?.tone}>{dispo?.label ?? lead.disposition}</Badge>
-                      {lead.transferred_to_name && (
-                        <p className="text-xs text-gray-400 mt-1">{lead.transferred_to_name}</p>
+                      <Badge tone={dispo?.tone}>{dispositionLabel(lead.disposition)}</Badge>
+                      {lead.attorney_name && (
+                        <p className="text-xs text-gray-400 mt-1">{lead.attorney_name}</p>
                       )}
                     </td>
                     <td className="px-4 py-3">

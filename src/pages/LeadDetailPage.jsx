@@ -1,16 +1,16 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ChevronLeft, Phone, Mail, PhoneIncoming, Moon, AlertTriangle, Clock,
-  ArrowRightLeft, ListOrdered, ClipboardList, Save, Code2, HelpCircle,
+  ChevronLeft, Phone, Mail, PhoneIncoming, Clock, CalendarClock,
+  ArrowRightLeft, ClipboardList, Save, Code2, HelpCircle,
 } from 'lucide-react'
 import { useAppStore } from '../store/AppContext'
 import { getLead, updateLead } from '../api/leads'
 import Badge from '../components/Badge'
 import {
-  DISPOSITIONS, LEAD_STATUSES, URGENCIES,
-  fullName, formatDuration, formatDateTime, formatPhone, isAfterHours,
-  fieldsNeedingReview, deriveTimeline,
+  DISPOSITIONS, LEAD_STATUSES, dispositionLabel,
+  fullName, formatDuration, formatDateTime, formatPhone,
+  fieldsNeedingReview,
 } from '../models/leads'
 
 function MetaItem({ icon: Icon, label, value, tone }) {
@@ -64,49 +64,6 @@ function AnswersTab({ lead }) {
   )
 }
 
-const EVENT_TONES = {
-  call_started:        'bg-blue-500',
-  case_type_corrected: 'bg-indigo-500',
-  faq_asked:           'bg-gray-300',
-  abandoned:           'bg-red-500',
-  transfer_completed:  'bg-green-600',
-  transfer_failed:     'bg-red-500',
-  call_ended:          'bg-gray-400',
-}
-
-function TimelineTab({ lead }) {
-  const events = useMemo(() => deriveTimeline(lead), [lead])
-
-  return (
-    <div className="py-2">
-      <p className="text-xs text-gray-400 mb-3">
-        Reconstructed from the fields the bot sends. Ask for an{' '}
-        <code className="font-mono">events[]</code> array if we want a real
-        per-turn log.
-      </p>
-      {events.map((e, i) => (
-        <div key={i} className="flex gap-3 pb-3 last:pb-0">
-          <div className="flex flex-col items-center shrink-0">
-            <span className={`w-2 h-2 rounded-full mt-1.5 ${EVENT_TONES[e.type] ?? 'bg-gray-300'}`} />
-            {i < events.length - 1 && <span className="w-px flex-1 bg-gray-200 mt-1" />}
-          </div>
-          <div className="min-w-0 pb-1">
-            <div className="flex items-baseline gap-2">
-              <p className="text-sm text-gray-800">{e.type.replace(/_/g, ' ')}</p>
-              <p className="text-xs text-gray-400">
-                {new Date(e.ts).toLocaleTimeString(undefined, {
-                  hour: 'numeric', minute: '2-digit', second: '2-digit',
-                })}
-              </p>
-            </div>
-            <p className="text-xs text-gray-500 mt-0.5">{e.detail}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 function RawTab({ lead }) {
   return (
     <div className="py-2">
@@ -122,7 +79,6 @@ function RawTab({ lead }) {
 
 const TABS = [
   { id: 'answers',  label: 'Intake answers', icon: ClipboardList, Component: AnswersTab },
-  { id: 'timeline', label: 'Call timeline',  icon: ListOrdered,   Component: TimelineTab },
   { id: 'raw',      label: 'Raw payload',    icon: Code2,         Component: RawTab },
 ]
 
@@ -198,7 +154,6 @@ export default function LeadDetailPage() {
   const name = fullName(lead)
   const dispo = DISPOSITIONS[lead.disposition]
   const review = fieldsNeedingReview(lead)
-  const afterHours = isAfterHours(lead.started_at)
   const aniMismatch = lead.callback_phone
     && lead.callback_phone.replace(/\D/g, '').slice(-10) !== lead.caller_ani.replace(/\D/g, '').slice(-10)
 
@@ -220,22 +175,10 @@ export default function LeadDetailPage() {
             <h2 className="text-xl font-semibold text-gray-900">
               {name || 'Unidentified caller'}
             </h2>
-            {lead.urgency === 'high' && (
-              <Badge tone={URGENCIES.high.tone}>
-                <AlertTriangle className="w-3 h-3" />
-                {URGENCIES.high.label}
-              </Badge>
-            )}
-            {lead.caller_state && <Badge tone="amber">{lead.caller_state}</Badge>}
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            {lead.case_type_label} · {formatDateTime(lead.started_at)}
+            {lead.case_type_label || 'Uncategorised'} · {formatDateTime(lead.started_at)}
           </p>
-          {lead.case_type_corrected && (
-            <p className="text-xs text-indigo-600 mt-1">
-              Reclassified mid-call from {lead.case_type_original_guess ?? 'an earlier guess'}
-            </p>
-          )}
         </div>
 
         <select
@@ -252,12 +195,12 @@ export default function LeadDetailPage() {
       {review.length > 0 && (
         <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
           <p className="text-sm font-medium text-amber-900">
-            {review.length} field{review.length > 1 ? 's' : ''} need{review.length > 1 ? '' : 's'} review
+            {review.length} low-confidence field{review.length > 1 ? 's' : ''}
           </p>
           <p className="text-xs text-amber-700 mt-0.5">
-            Speech recognition was unsure about{' '}
+            The agent reported that it may have misheard{' '}
             {review.map(a => a.question_text.replace(/\?$/, '').toLowerCase()).join(', ')}.
-            Confirm before contacting.
+            Worth confirming before you call back.
           </p>
         </div>
       )}
@@ -266,8 +209,7 @@ export default function LeadDetailPage() {
         <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
           <p className="text-sm font-medium text-red-900">Intake did not finish</p>
           <p className="text-xs text-red-700 mt-0.5">
-            Caller dropped at “{lead.abandoned_at_question}”. {lead.questions_answered} of{' '}
-            {lead.questions_total} questions answered.
+            Caller dropped at “{lead.abandoned_at_question}”.
           </p>
         </div>
       )}
@@ -296,16 +238,12 @@ export default function LeadDetailPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
           <h3 className="text-sm font-semibold text-gray-900">Call</h3>
           <MetaItem icon={Clock} label="Length" value={formatDuration(lead.duration_sec)} />
-          <MetaItem
-            icon={Moon} label="Received"
-            value={afterHours ? 'Outside business hours' : 'During business hours'}
-            tone={afterHours ? 'text-amber-500' : undefined}
-          />
+          <MetaItem icon={CalendarClock} label="Received" value={formatDateTime(lead.started_at)} />
           <div>
             <p className="text-xs text-gray-400 mb-1">Outcome</p>
-            <Badge tone={dispo?.tone}>{dispo?.label ?? lead.disposition}</Badge>
-            {lead.transferred_to_name && (
-              <p className="text-xs text-gray-500 mt-1">to {lead.transferred_to_name}</p>
+            <Badge tone={dispo?.tone}>{dispositionLabel(lead.disposition)}</Badge>
+            {lead.attorney_name && (
+              <p className="text-xs text-gray-500 mt-1">Attorney: {lead.attorney_name}</p>
             )}
           </div>
         </div>
@@ -328,17 +266,6 @@ export default function LeadDetailPage() {
           </p>
         )}
 
-        <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100">
-          <span className="text-xs text-gray-500">
-            <span className="font-medium text-gray-900">{lead.intake_completion_pct}%</span> intake complete
-          </span>
-          <span className="text-xs text-gray-500">
-            <span className="font-medium text-gray-900">{lead.questions_answered}</span>/{lead.questions_total} questions
-          </span>
-          <span className="text-xs text-gray-500">
-            <span className="font-medium text-gray-900">{lead.low_confidence_fields.length}</span> low-confidence
-          </span>
-        </div>
       </div>
 
       {(lead.additional_concerns.length > 0 || lead.faq_topics_asked.length > 0) && (

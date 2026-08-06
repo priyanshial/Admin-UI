@@ -8,11 +8,19 @@
 import { DEFAULT_INTAKE_TEMPLATES } from './defaults'
 
 export const DISPOSITIONS = {
-  transferred:          { label: 'Transferred',         tone: 'green' },
-  callback_requested:   { label: 'Callback requested',  tone: 'blue'  },
-  attorney_unavailable: { label: 'No attorney',         tone: 'amber' },
-  abandoned:            { label: 'Caller hung up',      tone: 'gray'  },
-  spam:                 { label: 'Spam / wrong number', tone: 'gray'  },
+  transferred:                   { label: 'Transferred',        tone: 'green' },
+  callback:                      { label: 'Callback requested', tone: 'blue'  },
+  callback_attorney_unavailable: { label: 'No attorney, callback', tone: 'amber' },
+  abandoned:                     { label: 'Caller hung up',     tone: 'gray'  },
+  spam:                          { label: 'Spam / wrong number',tone: 'gray'  },
+}
+
+/** Renders an outcome we have not seen before rather than printing a raw slug. */
+export function dispositionLabel(value) {
+  const known = DISPOSITIONS[value]?.label
+  if (known) return known
+  const humanised = String(value ?? '').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
+  return humanised || 'Unknown'
 }
 
 export const LEAD_STATUSES = {
@@ -23,27 +31,9 @@ export const LEAD_STATUSES = {
   junk:      { label: 'Junk',      tone: 'gray'   },
 }
 
-export const URGENCIES = {
-  high:   { label: 'Urgent', tone: 'red'  },
-  normal: { label: 'Normal', tone: 'gray' },
-  low:    { label: 'Low',    tone: 'gray' },
-}
-
-/** Answers below this are surfaced in the UI as "needs review". */
+/** Confidence below this is surfaced as a low-confidence field. */
 export const LOW_CONFIDENCE_THRESHOLD = 0.75
 
-/** Firm business hours backing the after-hours metric. Mon–Fri, 9am–5pm. */
-export const BUSINESS_HOURS = { startHour: 9, endHour: 17, days: [1, 2, 3, 4, 5] }
-
-/**
- * After-hours is the metric that sells the product: calls that would otherwise
- * have hit voicemail, where most callers never call back.
- */
-export function isAfterHours(isoOrDate, hours = BUSINESS_HOURS) {
-  const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate)
-  if (!hours.days.includes(d.getDay())) return true
-  return d.getHours() < hours.startHour || d.getHours() >= hours.endHour
-}
 
 export function fullName(lead) {
   return [lead.first_name, lead.middle_name, lead.last_name, lead.suffix]
@@ -81,7 +71,7 @@ export function formatRelative(iso) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-/** Answers the firm should eyeball before trusting, because ASR was unsure. */
+/** Answers the bot flagged as low-confidence speech recognition. */
 export function fieldsNeedingReview(lead) {
   return (lead.answers ?? []).filter(a => a.needs_review)
 }
@@ -89,6 +79,11 @@ export function fieldsNeedingReview(lead) {
 // ── Wire format → view model ──────────────────────────────────────────────────
 
 const templateById = Object.fromEntries(DEFAULT_INTAKE_TEMPLATES.map(t => [t.id, t]))
+
+/** Backend sends a UUID in `case_type`; `case_type_slug` is the template key. */
+function caseTypeKey(payload) {
+  return payload.case_type_slug ?? payload.case_type ?? null
+}
 
 /** Answer keys that carry contact details rather than case details. */
 const CONTACT_KEYS = {
@@ -122,7 +117,7 @@ function expandAnswers(payload) {
     }))
   }
 
-  const template = templateById[payload.case_type]
+  const template = templateById[caseTypeKey(payload)]
   const questionById = Object.fromEntries((template?.questions ?? []).map(q => [q.id, q]))
   const lowConfidence = new Set(payload.low_confidence_fields ?? [])
 
@@ -140,44 +135,34 @@ function expandAnswers(payload) {
       question_text_is_inferred: !q,
       field_type: q?.fieldType ?? 'text',
       value: String(raw[qid] ?? ''),
-      confidence: lowConfidence.has(qid) ? 0.5 : null,
       needs_review: lowConfidence.has(qid),
     }
   })
 }
 
-function deriveUrgency(payload, answers) {
-  const byId = Object.fromEntries(answers.map(a => [a.question_id, a.value]))
-  if (byId.has_court_date === 'Yes' || byId.court_date) return 'high'
-  const text = [payload.caller_description, payload.summary, byId.immigration_issue, byId.message]
-    .filter(Boolean).join(' ').toLowerCase()
-  if (/\b(court date|hearing|expires|expiring|deadline|emergency|urgent|notice to appear)\b/.test(text)) {
-    return 'high'
-  }
-  return 'normal'
-}
-
 /**
  * Bot payload → the shape every component in this app consumes.
  *
- * Wire format (as of the contract Lamarck/Priyanshi are sending):
- *   call_id, firm_name, caller_number, dialed_number,
- *   received_at_iso, completed_at_iso, call_duration_seconds,
- *   case_type, case_type_label, case_type_corrected, case_type_original_guess,
- *   outcome, attorney_name, attorney_id,
+ * Backend response fields (GET /api/ai-config/<uuid>/leads/):
+ *   id, company, call_id, caller_number, dialed_number,
+ *   received_at, completed_at, call_duration_seconds,
+ *   case_type (uuid), case_type_slug, case_type_label,
+ *   outcome, attorney, attorney_name,
  *   caller_description, summary,
  *   answers {}, low_confidence_fields [],
- *   additional_concerns [], faq_topics_asked [],
- *   abandoned_at_question, questions_total, questions_answered
+ *   additional_concerns [], faq_topics_asked [], abandoned_at_question
+ *
+ * The bot's POST shape uses received_at_iso/completed_at_iso; both are accepted.
  */
 export function normalizeLead(payload, { company = null } = {}) {
   const answers = expandAnswers(payload)
   const byId = Object.fromEntries(answers.map(a => [a.question_id, a.value]))
 
-  const started_at = payload.received_at_iso ?? payload.started_at
-  const ended_at = payload.completed_at_iso ?? payload.ended_at
+  // Django serializes `received_at`; the bot posts `received_at_iso`.
+  const started_at = payload.received_at ?? payload.received_at_iso ?? null
+  const ended_at = payload.completed_at ?? payload.completed_at_iso ?? null
 
-  // The bot sends null more often than not; the timestamps are authoritative.
+  // Derived only when the backend leaves it null.
   const duration_sec = payload.call_duration_seconds
     ?? (started_at && ended_at
       ? Math.max(0, Math.round((new Date(ended_at) - new Date(started_at)) / 1000))
@@ -188,28 +173,22 @@ export function normalizeLead(payload, { company = null } = {}) {
     contact[field] = byId[answerKey] ?? ''
   }
 
-  const total = payload.questions_total ?? 0
-  const answered = payload.questions_answered ?? 0
-
   return {
     id: payload.id ?? payload.call_id,
     company: company ?? payload.company ?? null,
     call_id: payload.call_id,
-    firm_name: payload.firm_name ?? null,
 
     caller_ani: payload.caller_number ?? payload.caller_ani ?? '',
     dialed_number: payload.dialed_number ?? '',
     started_at,
     ended_at,
     duration_sec,
-    recording_url: payload.recording_url ?? null,
 
     ...contact,
 
-    case_type: payload.case_type,
-    case_type_label: payload.case_type_label ?? templateById[payload.case_type]?.label ?? payload.case_type,
-    case_type_corrected: payload.case_type_corrected ?? false,
-    case_type_original_guess: payload.case_type_original_guess ?? null,
+    // `case_type` is a UUID on the backend; `case_type_slug` is the template key.
+    case_type: caseTypeKey(payload),
+    case_type_label: payload.case_type_label ?? templateById[caseTypeKey(payload)]?.label ?? '',
 
     // `summary` is the field Sean wants saved per lead. Until the bots populate
     // it, fall back to the caller's own opening words so the row is not blank.
@@ -218,17 +197,10 @@ export function normalizeLead(payload, { company = null } = {}) {
     summary_is_fallback: !payload.summary && Boolean(payload.caller_description),
     caller_description: payload.caller_description ?? '',
 
-    urgency: payload.urgency ?? deriveUrgency(payload, answers),
-    caller_state: payload.caller_state ?? null,
-
     disposition: payload.outcome ?? payload.disposition,
-    transferred_to_name: payload.attorney_name ?? null,
-    transferred_to_id: payload.attorney_id ?? null,
+    attorney_name: payload.attorney_name ?? null,
 
-    intake_completion_pct: total ? Math.round((answered / total) * 100) : 0,
-    questions_total: total,
-    questions_answered: answered,
-    abandoned_at_question: payload.abandoned_at_question ?? null,
+    abandoned_at_question: payload.abandoned_at_question || null,
     low_confidence_fields: payload.low_confidence_fields ?? [],
     additional_concerns: payload.additional_concerns ?? [],
     faq_topics_asked: payload.faq_topics_asked ?? [],
@@ -237,50 +209,7 @@ export function normalizeLead(payload, { company = null } = {}) {
     notes: payload.notes ?? '',
 
     answers,
-    transcript: payload.transcript ?? null,
     raw: payload,
   }
 }
 
-/**
- * Reconstructs a call timeline from the fields the bot actually sends. The
- * contract has no event log, so this is derived rather than recorded: good
- * enough to show the shape of a call, not good enough for real diagnostics.
- * Ask for a `events[]` array if we want the real thing.
- */
-export function deriveTimeline(lead) {
-  const events = []
-  if (lead.started_at) {
-    events.push({
-      ts: lead.started_at,
-      type: 'call_started',
-      detail: `Inbound from ${formatPhone(lead.caller_ani)} to ${formatPhone(lead.dialed_number)}`,
-    })
-  }
-  if (lead.case_type_corrected) {
-    events.push({
-      ts: lead.started_at,
-      type: 'case_type_corrected',
-      detail: `Reclassified from ${lead.case_type_original_guess ?? 'an earlier guess'} to ${lead.case_type_label}`,
-    })
-  }
-  for (const topic of lead.faq_topics_asked) {
-    events.push({ ts: lead.started_at, type: 'faq_asked', detail: `Caller asked about ${topic.replace(/_/g, ' ')}` })
-  }
-  if (lead.abandoned_at_question) {
-    events.push({
-      ts: lead.ended_at,
-      type: 'abandoned',
-      detail: `Caller dropped at "${lead.abandoned_at_question}"`,
-    })
-  }
-  if (lead.disposition === 'transferred') {
-    events.push({ ts: lead.ended_at, type: 'transfer_completed', detail: `Connected to ${lead.transferred_to_name ?? 'an attorney'}` })
-  } else if (lead.disposition === 'attorney_unavailable') {
-    events.push({ ts: lead.ended_at, type: 'transfer_failed', detail: 'No attorney answered' })
-  }
-  if (lead.ended_at) {
-    events.push({ ts: lead.ended_at, type: 'call_ended', detail: `Duration ${formatDuration(lead.duration_sec)}` })
-  }
-  return events
-}

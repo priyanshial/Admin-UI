@@ -31,8 +31,8 @@ function at(daysAgo, hour, minute, { weekend = false } = {}) {
 function span(daysAgo, hour, minute, durationSec, opts) {
   const received = at(daysAgo, hour, minute, opts)
   return {
-    received_at_iso: received,
-    completed_at_iso: new Date(new Date(received).getTime() + durationSec * 1000).toISOString(),
+    received_at: received,
+    completed_at: new Date(new Date(received).getTime() + durationSec * 1000).toISOString(),
     call_duration_seconds: null, // the bot sends null; the UI derives it
   }
 }
@@ -53,16 +53,15 @@ const familyLaw = () => [
     caller_number: '+19342278405',
     dialed_number: FAMILY_LINE,
     ...span(0, 14, 4, 203),
-    case_type: 'divorce',
+    case_type_slug: 'divorce',
     case_type_label: 'Standard Divorce',
     case_type_corrected: false,
     case_type_original_guess: null,
-    outcome: 'attorney_unavailable',
+    outcome: 'callback_attorney_unavailable',
     attorney_name: null,
     attorney_id: null,
     caller_description: 'Hi, so my name is Lamarck, and I wanted to speak about my divorce with my spouse. We have two kids and we are looking to get separated.',
     summary: 'Caller is seeking a divorce. Two children together, no shared property, no longer living in the same household. Resides in Stony Brook, NY. No paperwork served and no court date pending. Primary concern is child custody. The caller is distressed about how custody will be decided.',
-    caller_state: 'distressed',
     answers: {
       first_name: 'Lamarck',
       last_name: 'Dcunha',
@@ -80,8 +79,6 @@ const familyLaw = () => [
     additional_concerns: ['Caller is anxious about how custody of the children will be decided.'],
     faq_topics_asked: [],
     abandoned_at_question: null,
-    questions_total: 11,
-    questions_answered: 11,
   },
 
   {
@@ -90,7 +87,7 @@ const familyLaw = () => [
     caller_number: '+16315550188',
     dialed_number: FAMILY_LINE,
     ...span(0, 21, 18, 168),
-    case_type: 'child_custody',
+    case_type_slug: 'child_custody',
     case_type_label: 'Standard Child Custody',
     case_type_corrected: true,
     case_type_original_guess: 'divorce',
@@ -119,8 +116,6 @@ const familyLaw = () => [
     additional_concerns: [],
     faq_topics_asked: ['office_hours'],
     abandoned_at_question: null,
-    questions_total: 14,
-    questions_answered: 14,
   },
 
   {
@@ -129,9 +124,9 @@ const familyLaw = () => [
     caller_number: '+15165550119',
     dialed_number: FAMILY_LINE,
     ...span(1, 10, 15, 141),
-    case_type: 'divorce',
+    case_type_slug: 'divorce',
     case_type_label: 'Standard Divorce',
-    outcome: 'callback_requested',
+    outcome: 'callback',
     attorney_name: null,
     caller_description: 'My wife and I have agreed to separate and want to keep it simple.',
     summary: 'Uncontested divorce, no children, jointly owned home, still sharing a household. Looking for a straightforward filing.',
@@ -151,8 +146,6 @@ const familyLaw = () => [
     additional_concerns: [],
     faq_topics_asked: ['pricing'],
     abandoned_at_question: null,
-    questions_total: 11,
-    questions_answered: 10,
   },
 
   {
@@ -161,7 +154,7 @@ const familyLaw = () => [
     caller_number: '+18005550123',
     dialed_number: FAMILY_LINE,
     ...span(2, 2, 37, 44),
-    case_type: 'divorce',
+    case_type_slug: 'divorce',
     case_type_label: 'Standard Divorce',
     outcome: 'abandoned',
     attorney_name: null,
@@ -172,8 +165,6 @@ const familyLaw = () => [
     additional_concerns: [],
     faq_topics_asked: [],
     abandoned_at_question: 'What is your last name?',
-    questions_total: 11,
-    questions_answered: 1,
   },
 
   {
@@ -182,7 +173,7 @@ const familyLaw = () => [
     caller_number: '+19175550171',
     dialed_number: FAMILY_LINE,
     ...span(3, 15, 40, 187),
-    case_type: 'divorce',
+    case_type_slug: 'divorce',
     case_type_label: 'Standard Divorce',
     outcome: 'transferred',
     attorney_name: 'Marcus Feld',
@@ -206,8 +197,6 @@ const familyLaw = () => [
     additional_concerns: ['Caller is worried about missing the court date without representation.'],
     faq_topics_asked: ['office_hours', 'pricing'],
     abandoned_at_question: null,
-    questions_total: 13,
-    questions_answered: 13,
   },
 
   {
@@ -216,7 +205,7 @@ const familyLaw = () => [
     caller_number: '+16315550193',
     dialed_number: FAMILY_LINE,
     ...span(4, 22, 5, 122),
-    case_type: 'child_custody',
+    case_type_slug: 'child_custody',
     case_type_label: 'Standard Child Custody',
     outcome: 'transferred',
     attorney_name: 'Priya Raman',
@@ -239,8 +228,6 @@ const familyLaw = () => [
     additional_concerns: [],
     faq_topics_asked: [],
     abandoned_at_question: null,
-    questions_total: 12,
-    questions_answered: 10,
   },
 
   {
@@ -249,9 +236,9 @@ const familyLaw = () => [
     caller_number: '+15165550137',
     dialed_number: FAMILY_LINE,
     ...span(5, 13, 12, 155, { weekend: true }),
-    case_type: 'divorce',
+    case_type_slug: 'divorce',
     case_type_label: 'Standard Divorce',
-    outcome: 'attorney_unavailable',
+    outcome: 'callback_attorney_unavailable',
     attorney_name: null,
     caller_description: 'Things have gotten bad at home and I want to understand my options.',
     summary: 'Contested divorce, children and shared property, both parties still in the marital home. No filings yet.',
@@ -271,8 +258,6 @@ const familyLaw = () => [
     additional_concerns: [],
     faq_topics_asked: ['office_hours'],
     abandoned_at_question: null,
-    questions_total: 11,
-    questions_answered: 11,
   },
 ]
 
@@ -288,16 +273,15 @@ const immigration = () => [
     caller_number: '+19342278816',
     dialed_number: IMMIGRATION_LINE,
     ...span(0, 14, 16, 226),
-    case_type: 'immigration',
+    case_type_slug: 'immigration',
     case_type_label: 'Standard Immigration',
     case_type_corrected: false,
     case_type_original_guess: null,
-    outcome: 'attorney_unavailable',
+    outcome: 'callback_attorney_unavailable',
     attorney_name: null,
     attorney_id: null,
     caller_description: 'Hi, I need some legal assistance with an immigration matter.',
     summary: 'Caller is on OPT following graduation, with status expiring in approximately four months. Employer has not initiated H-1B sponsorship. Seeking guidance on options to maintain legal status.',
-    caller_state: 'anxious',
     answers: {
       first_name: 'Priyanshi',
       last_name: 'Jain',
@@ -311,8 +295,6 @@ const immigration = () => [
     additional_concerns: ['Caller is anxious about falling out of status before H-1B sponsorship begins.'],
     faq_topics_asked: [],
     abandoned_at_question: null,
-    questions_total: 8,
-    questions_answered: 7,
   },
 
   {
@@ -321,7 +303,7 @@ const immigration = () => [
     caller_number: '+17185550122',
     dialed_number: IMMIGRATION_LINE,
     ...span(0, 23, 9, 178),
-    case_type: 'immigration',
+    case_type_slug: 'immigration',
     case_type_label: 'Standard Immigration',
     outcome: 'transferred',
     attorney_name: 'Ana Villareal',
@@ -339,8 +321,6 @@ const immigration = () => [
     additional_concerns: [],
     faq_topics_asked: ['office_hours'],
     abandoned_at_question: null,
-    questions_total: 8,
-    questions_answered: 8,
   },
 
   {
@@ -349,7 +329,7 @@ const immigration = () => [
     caller_number: '+19295550154',
     dialed_number: IMMIGRATION_LINE,
     ...span(1, 9, 48, 134),
-    case_type: 'immigration',
+    case_type_slug: 'immigration',
     case_type_label: 'Standard Immigration',
     outcome: 'transferred',
     attorney_name: 'Ana Villareal',
@@ -365,8 +345,6 @@ const immigration = () => [
     additional_concerns: [],
     faq_topics_asked: [],
     abandoned_at_question: null,
-    questions_total: 8,
-    questions_answered: 6,
   },
 
   {
@@ -375,9 +353,9 @@ const immigration = () => [
     caller_number: '+13475550196',
     dialed_number: IMMIGRATION_LINE,
     ...span(2, 18, 33, 211),
-    case_type: 'immigration',
+    case_type_slug: 'immigration',
     case_type_label: 'Standard Immigration',
-    outcome: 'callback_requested',
+    outcome: 'callback',
     attorney_name: null,
     caller_description: 'I filed for asylum over a year ago and I have not heard anything.',
     summary: 'Asylum application pending 14 months with no interview scheduled. Employment authorisation expires next month, so renewal is time-critical.',
@@ -393,8 +371,6 @@ const immigration = () => [
     additional_concerns: ['Work permit expiry may create a gap in employment authorisation.'],
     faq_topics_asked: ['case_status'],
     abandoned_at_question: null,
-    questions_total: 8,
-    questions_answered: 8,
   },
 
   {
@@ -403,9 +379,9 @@ const immigration = () => [
     caller_number: '+16465550178',
     dialed_number: IMMIGRATION_LINE,
     ...span(3, 12, 15, 89),
-    case_type: 'immigration',
+    case_type_slug: 'immigration',
     case_type_label: 'Standard Immigration',
-    outcome: 'callback_requested',
+    outcome: 'callback',
     attorney_name: null,
     caller_description: 'I want to bring my wife over from abroad.',
     summary: 'Family-based petition for a spouse residing abroad. Early-stage inquiry.',
@@ -418,8 +394,6 @@ const immigration = () => [
     additional_concerns: [],
     faq_topics_asked: ['pricing'],
     abandoned_at_question: null,
-    questions_total: 8,
-    questions_answered: 5,
   },
 
   {
@@ -428,7 +402,7 @@ const immigration = () => [
     caller_number: '+18885550100',
     dialed_number: IMMIGRATION_LINE,
     ...span(4, 3, 22, 31),
-    case_type: 'immigration',
+    case_type_slug: 'immigration',
     case_type_label: 'Standard Immigration',
     outcome: 'spam',
     attorney_name: null,
@@ -439,8 +413,6 @@ const immigration = () => [
     additional_concerns: [],
     faq_topics_asked: [],
     abandoned_at_question: 'What is your first name?',
-    questions_total: 8,
-    questions_answered: 0,
   },
 
   {
@@ -449,7 +421,7 @@ const immigration = () => [
     caller_number: '+19175550163',
     dialed_number: IMMIGRATION_LINE,
     ...span(5, 16, 40, 165),
-    case_type: 'immigration',
+    case_type_slug: 'immigration',
     case_type_label: 'Standard Immigration',
     outcome: 'transferred',
     attorney_name: 'Ana Villareal',
@@ -466,8 +438,6 @@ const immigration = () => [
     additional_concerns: [],
     faq_topics_asked: ['office_hours'],
     abandoned_at_question: null,
-    questions_total: 8,
-    questions_answered: 7,
   },
 
   {
@@ -476,7 +446,7 @@ const immigration = () => [
     caller_number: '+17185550149',
     dialed_number: IMMIGRATION_LINE,
     ...span(6, 11, 30, 143, { weekend: true }),
-    case_type: 'immigration',
+    case_type_slug: 'immigration',
     case_type_label: 'Standard Immigration',
     outcome: 'transferred',
     attorney_name: 'Ana Villareal',
@@ -493,8 +463,6 @@ const immigration = () => [
     additional_concerns: ['Hearing in three weeks, needs representation urgently.'],
     faq_topics_asked: [],
     abandoned_at_question: null,
-    questions_total: 8,
-    questions_answered: 8,
   },
 ]
 
