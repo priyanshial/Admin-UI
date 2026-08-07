@@ -10,6 +10,11 @@ export default function Layout({ children }) {
   // The leads table needs more room than the config forms.
   const wide = pathname.startsWith('/leads')
 
+  // The accounts list is above any single firm, so the sidebar shouldn't claim
+  // one is open there. Derived from the route rather than from activeAccountId,
+  // which lingers after navigating back (including via the browser Back button).
+  const inFirm = Boolean(activeAccountId) && !pathname.startsWith('/accounts')
+
   const configNavItems = [
     { to: '/leads',                      label: 'Leads',             icon: Inbox },
     { to: `/account/${activeAccountId}`, label: 'AI Account',        icon: Bot },
@@ -24,9 +29,14 @@ export default function Layout({ children }) {
     <div className="flex min-h-screen bg-gray-50">
       <aside className="w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col">
 
-        {/* Header */}
+        {/* Header — the active firm, so it's always clear which account you're in */}
         <div className="px-6 py-5 border-b border-gray-200">
-          <h1 className="text-lg font-semibold text-gray-900">AI Config</h1>
+          <h1
+            className="text-lg font-semibold text-gray-900 truncate"
+            title={(inFirm && accountConfig?.name) || undefined}
+          >
+            {(inFirm && accountConfig?.name) || 'AI Config'}
+          </h1>
           <p className="text-xs text-gray-500 mt-0.5">Voice Agent Dashboard</p>
         </div>
 
@@ -42,7 +52,7 @@ export default function Layout({ children }) {
         </div>
 
         {/* Config nav — only when an account is selected */}
-        {activeAccountId && (
+        {inFirm && (
           <nav className="flex-1 px-3 py-2 space-y-1">
             {configNavItems.map(({ to, label, icon: Icon }) => (
               <NavLink
@@ -63,7 +73,7 @@ export default function Layout({ children }) {
           </nav>
         )}
 
-        {!activeAccountId && (
+        {!inFirm && (
           <nav className="flex-1 px-3 py-2 space-y-1">
             <NavLink
               to="/accounts"
@@ -81,12 +91,6 @@ export default function Layout({ children }) {
           </nav>
         )}
 
-        {/* Footer — shows active firm name */}
-        <div className="px-6 py-4 border-t border-gray-200">
-          <p className="text-xs text-gray-400 truncate">
-            {accountConfig?.name ?? 'No account selected'}
-          </p>
-        </div>
       </aside>
 
       <main className="flex-1 overflow-auto">
