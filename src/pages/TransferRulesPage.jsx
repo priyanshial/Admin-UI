@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Save, ChevronRight, ChevronDown, Plus, Trash2, ChevronUp } from 'lucide-react'
 import { useAppStore } from '../store/AppContext'
-import { getIntakeTemplates, getContacts, getTransferRulesByCaseType, setTransferRules } from '../api/core'
+import { getIntakeTemplates, getContacts, getTransferRules, setTransferRules } from '../api/core'
 import { parseApiError } from '../api/config'
 
 const TOGGLES = [
@@ -154,11 +154,12 @@ function rulesKey(rules) {
   )
 }
 
-function CaseTypeSection({ caseType, contacts }) {
+function CaseTypeSection({ caseType, contacts, initialRules }) {
   const [expanded, setExpanded] = useState(false)
-  const [rules, setRules] = useState([])
-  const [savedKey, setSavedKey] = useState('')   // snapshot of last-saved state
-  const [loading, setLoading] = useState(false)
+  // Rules arrive from the page-level fetch, so the assigned-contact count is
+  // correct while collapsed -- no per-section request on expand.
+  const [rules, setRules] = useState(initialRules)
+  const [savedKey, setSavedKey] = useState(() => rulesKey(initialRules))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -166,29 +167,6 @@ function CaseTypeSection({ caseType, contacts }) {
   const { activeAccountId } = useAppStore()
 
   const isDirty = rulesKey(rules) !== savedKey
-
-  useEffect(() => {
-    if (!expanded) return
-    setLoading(true)
-    getTransferRulesByCaseType(activeAccountId, caseType.id)
-      .then(data => {
-        const group = Array.isArray(data) ? data[0] : null
-        const sorted = (group?.contacts ?? []).slice().sort((a, b) => a.priority - b.priority)
-        // Enrich with phone/email from the contacts list (backend may not return them)
-        const enriched = sorted.map(r => {
-          const match = contacts.find(c => c.id === r.contact)
-          return {
-            ...r,
-            contact_phone: r.contact_phone ?? match?.phone ?? '',
-            contact_email: r.contact_email ?? match?.email ?? '',
-          }
-        })
-        setRules(enriched)
-        setSavedKey(rulesKey(enriched))
-      })
-      .catch(() => { setRules([]); setSavedKey(rulesKey([])) })
-      .finally(() => setLoading(false))
-  }, [expanded, caseType.id, activeAccountId, contacts])
 
   function handleAddContact() {
     if (!addContactId) return
@@ -266,11 +244,9 @@ function CaseTypeSection({ caseType, contacts }) {
           <p className={`text-sm font-medium ${caseType.enabled ? 'text-gray-900' : 'text-gray-400'}`}>
             {caseType.label}
           </p>
-          {!loading && (
-            <p className="text-xs text-gray-400 mt-0.5">
-              {rules.length} contact{rules.length !== 1 ? 's' : ''} assigned
-            </p>
-          )}
+          <p className="text-xs text-gray-400 mt-0.5">
+            {rules.length} contact{rules.length !== 1 ? 's' : ''} assigned
+          </p>
         </div>
         {!caseType.enabled && (
           <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">Disabled in Intake</span>
@@ -279,10 +255,7 @@ function CaseTypeSection({ caseType, contacts }) {
 
       {expanded && (
         <div className="border-t border-gray-100 px-5 pb-5 pt-4">
-          {loading ? (
-            <p className="text-xs text-gray-400 text-center py-4">Loading…</p>
-          ) : (
-            <div className="space-y-3">
+          <div className="space-y-3">
               {rules.length === 0 && (
                 <p className="text-xs text-gray-400 text-center py-3">No contacts assigned yet. Add one below.</p>
               )}
@@ -344,27 +317,66 @@ function CaseTypeSection({ caseType, contacts }) {
                   {saving ? 'Saving…' : 'Save'}
                 </button>
               </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
     </div>
   )
 }
 
+/** The case type a rule group belongs to; the field name varies by serializer. */
+function groupCaseTypeId(group) {
+  const raw = group?.case_type ?? group?.case_type_id ?? group?.caseType
+  return typeof raw === 'object' ? raw?.id : raw
+}
+
+/**
+ * Groups the company-wide transfer rules by case type id, sorted by priority
+ * and enriched with phone/email from the contacts list (the rules endpoint may
+ * not return them).
+ */
+function rulesByCaseType(groups, contacts) {
+  const map = {}
+  for (const group of Array.isArray(groups) ? groups : []) {
+    const caseTypeId = groupCaseTypeId(group)
+    if (!caseTypeId) continue
+    map[caseTypeId] = (group.contacts ?? [])
+      .slice()
+      .sort((a, b) => a.priority - b.priority)
+      .map(r => {
+        const match = contacts.find(c => c.id === r.contact)
+        return {
+          ...r,
+          contact_phone: r.contact_phone ?? match?.phone ?? '',
+          contact_email: r.contact_email ?? match?.email ?? '',
+        }
+      })
+  }
+  return map
+}
+
 export default function TransferRulesPage() {
   const { activeAccountId } = useAppStore()
   const [caseTypes, setCaseTypes] = useState([])
   const [contacts, setContacts] = useState([])
+  const [rulesMap, setRulesMap] = useState({})
   const [loading, setLoading] = useState(true)
 
+  // One request per resource for the whole page, including every case type's
+  // transfer rules -- so the assigned-contact counts are right before anything
+  // is expanded.
   useEffect(() => {
     if (!activeAccountId) return
     Promise.all([
       getIntakeTemplates(activeAccountId).catch(() => []),
       getContacts(activeAccountId).catch(() => []),
+      getTransferRules(activeAccountId).catch(() => []),
     ])
-      .then(([tmpl, ctcts]) => { setCaseTypes(tmpl); setContacts(ctcts) })
+      .then(([tmpl, ctcts, rules]) => {
+        setCaseTypes(tmpl)
+        setContacts(ctcts)
+        setRulesMap(rulesByCaseType(rules, ctcts))
+      })
       .finally(() => setLoading(false))
   }, [activeAccountId])
 
@@ -407,6 +419,7 @@ export default function TransferRulesPage() {
                     key={ct.id}
                     caseType={ct}
                     contacts={contacts}
+                    initialRules={rulesMap[ct.id] ?? []}
                   />
                 ))}
               </div>
