@@ -60,7 +60,7 @@ function QuestionRow({ question, onToggle, onChangeText }) {
         )}
         {question.required && (
           <span className="text-xs px-1.5 py-0.5 bg-red-50 text-red-500 border border-red-100 rounded-full">
-            required
+            confirm
           </span>
         )}
         <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${FIELD_TYPE_STYLES[question.fieldType] ?? 'bg-gray-100 text-gray-500'}`}>
